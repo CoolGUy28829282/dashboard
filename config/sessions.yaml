@@ -1,0 +1,31 @@
+# All times America/New_York. Editable in the UI (Settings) too.
+timezone: America/New_York
+candle_anchor: forex            # forex = daily open 17:00 ET (4H at 21,1,5,9,13,17); exchange = 18:00 ET
+trading_window: { start: "09:00", end: "12:00" }
+globex: { open_dow: 6, open: "18:00", close_dow: 4, close: "17:00", halt_start: "17:00", halt_end: "18:00" }  # dow: Mon=0
+sessions:
+  asia:      { start: "20:00", end: "02:00" }
+  london:    { start: "02:00", end: "05:00" }
+  premarket: { start: "05:00", end: "09:30" }
+  rth:       { start: "09:30", end: "16:00" }
+opens:                          # opening prices to plot
+  - { id: daily_open, time: "17:00", label: "5 PM open", prev_day: true }
+  - { id: midnight_open, time: "00:00", label: "Midnight open" }
+  - { id: open_0830, time: "08:30", label: "8:30 open" }
+  - { id: open_0900, time: "09:00", label: "9:00 window open" }
+  - { id: open_0930, time: "09:30", label: "9:30 RTH open" }
+key_times:                      # markers inside and before the window
+  - { time: "01:00", label: "1 AM 4H open", kind: context }
+  - { time: "05:00", label: "5 AM 4H open", kind: context }
+  - { time: "08:30", label: "8:30 data", kind: context }
+  - { time: "09:00", label: "Window open, 4H + 1h open", kind: window }
+  - { time: "09:30", label: "RTH open", kind: window }
+  - { start: "09:50", end: "10:10", label: "First reversal window", kind: reversal }
+  - { time: "10:00", label: "10:00 data, 1h open", kind: window }
+  - { start: "10:50", end: "11:10", label: "Second reversal window", kind: reversal }
+  - { time: "11:00", label: "1h open", kind: window }
+  - { start: "11:50", end: "12:10", label: "Third reversal window", kind: reversal }
+  - { time: "12:00", label: "Stand down", kind: window }
+milestones: ["09:00", "09:30", "12:00"]   # countdown targets, in order
+execution_timeframes: ["15m", "30m", "1h"]
+context_slots: ["21:00", "01:00", "05:00", "09:00"]   # 4H candles the CRT engine keys on (forex anchor)

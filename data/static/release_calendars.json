@@ -1,0 +1,11 @@
+{
+  "sources": {
+    "bls": "https://www.bls.gov/schedule/news_release/",
+    "bea": "https://www.bea.gov/news/schedule",
+    "treasury": "https://www.treasurydirect.gov/auctions/upcoming/"
+  },
+  "fetched_on": null,
+  "verified": false,
+  "note": "Empty until scripts/fetch_static_calendars.py runs with network access. The Forex Factory feed is the live source for release times; this file only backfills weeks the feed does not cover.",
+  "releases": []
+}

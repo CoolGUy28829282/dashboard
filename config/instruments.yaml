@@ -1,0 +1,46 @@
+NQ:
+  name: Nasdaq 100 E-mini
+  yf: NQ=F
+  tick: 0.25
+  tick_value: 5
+  months: [H, M, U, Z]
+  roll_rule: second_thursday      # roll on the 2nd Thursday of expiry month, expire 3rd Friday
+  smt_partner: ES
+  smt_tiebreak: YM
+  intermarket: ["ES=F", "YM=F", "^VIX", "^TNX", "DX-Y.NYB", "^N225", "^GDAXI", "^FTSE"]
+  keywords: [nasdaq, tech, nvidia, apple, microsoft, amazon, alphabet, google, meta, tesla, semiconductor, "ai ", earnings, fed, treasury, yields, cpi, ppi, nfp, payrolls, fomc, powell, tariff]
+ES:
+  name: S&P 500 E-mini
+  yf: ES=F
+  tick: 0.25
+  tick_value: 12.5
+  months: [H, M, U, Z]
+  roll_rule: second_thursday
+  smt_partner: NQ
+  smt_tiebreak: YM
+  intermarket: ["NQ=F", "YM=F", "^VIX", "^TNX", "DX-Y.NYB", "^N225", "^GDAXI", "^FTSE"]
+  keywords: [s&p, stocks, wall street, fed, treasury, yields, vix, breadth, cpi, ppi, nfp, payrolls, fomc, powell, tariff, recession, earnings]
+GC:
+  name: Gold
+  yf: GC=F
+  tick: 0.1
+  tick_value: 10
+  months: [G, J, M, Q, Z]
+  roll_rule: gold_active_month    # roll ahead of first notice (last business day before delivery month)
+  smt_partner: SI
+  smt_tiebreak: DXY_INVERSE
+  intermarket: ["SI=F", "DX-Y.NYB", "^TNX", "CL=F", "^VIX"]
+  keywords: [gold, bullion, silver, dollar, dxy, real yields, tips, fed, rate cut, central bank, pboc, ecb, boj, geopolit, ukraine, israel, iran, china, tariff, etf, inflation, cpi, pce]
+symbols:                          # every yfinance symbol we touch
+  - NQ=F
+  - ES=F
+  - GC=F
+  - SI=F
+  - YM=F
+  - DX-Y.NYB
+  - ^TNX
+  - ^VIX
+  - CL=F
+  - ^N225
+  - ^GDAXI
+  - ^FTSE

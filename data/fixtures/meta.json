@@ -1,0 +1,7 @@
+{
+ "source": "synthetic",
+ "frozen_at": "2026-09-11T07:02:00-04:00",
+ "generator": "scripts/gen_synthetic_fixtures.py",
+ "seed": 20260911,
+ "note": "Seeded random walk with an engineered fixture week. Not market data."
+}

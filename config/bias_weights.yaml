@@ -1,0 +1,23 @@
+# Directional factor weights. Missing factors are dropped and the rest renormalised.
+default:
+  overnight_structure: 0.25
+  htf_context: 0.20
+  crt_state: 0.20
+  intermarket: 0.15
+  news_sentiment: 0.10
+  weekday_tendency: 0.10
+overrides:
+  GC:
+    overnight_structure: 0.20
+    htf_context: 0.20
+    crt_state: 0.20
+    intermarket: 0.25
+    news_sentiment: 0.10
+    weekday_tendency: 0.05
+thresholds: { bullish: 0.15, bearish: -0.15 }
+confidence: { base: 50, slope: 50, cap: 95, disagreement_penalty: 10 }
+evidence: { shrink_k: 20, min_n: 30, exclude_red_folder: true, recompute_days: 7 }
+similar_mornings: { k: 10, lookback_days: 365 }
+modifiers:
+  calendar_risk: { orange_between: ["08:30", "12:00"], penalty: 8 }
+  data_quality: { stale_minutes: 45, penalty_per_source: 5 }

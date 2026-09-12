@@ -1,0 +1,19 @@
+# Applied in order; first match sets the label, every matched rule is listed behind Why.
+red_folder: { scope: any_time, currencies: [USD] }   # any_time | before_1200
+orange_window: ["08:30", "12:00"]
+no_trade:
+  - { id: red_folder_event, text: "Red-folder {currency} event: {event} at {time}" }
+  - { id: cme_holiday, text: "CME holiday: {name}" }
+  - { id: early_close, text: "Early close: {name}" }
+  - { id: low_confidence, text: "Bias confidence {confidence}% is below 50" , min_confidence: 50 }
+  - { id: source_unavailable, text: "{source} source unavailable at scan time" }
+caution:
+  - { id: orange_event, text: "Orange-folder {event} at {time} is inside 8:30–12:00" }
+  - { id: roll_or_expiry, text: "{what} day for {contract}" }
+  - { id: quarterly_opex, text: "Quarterly OPEX" }
+  - { id: overnight_range, text: "Overnight range is {pct}% of its 20-day average", low_pct: 40, high_pct: 150 }
+  - { id: es_nq_conflict, text: "ES and NQ disagree: {detail}" }
+  - { id: neutral_bias, text: "Bias is neutral" }
+  - { id: weekday_bottom_quartile, text: "{weekday} 9–12 range is in its bottom quartile" }
+  - { id: no_readable_range, text: "Every tracked execution range is already swept on both sides" }
+trade: { min_confidence: 60 }

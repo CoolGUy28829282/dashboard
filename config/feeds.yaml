@@ -1,0 +1,21 @@
+rss:
+  - { id: cnbc_top, name: CNBC Top News, url: "https://www.cnbc.com/id/100003114/device/rss/rss.html", group: markets }
+  - { id: cnbc_econ, name: CNBC Economy, url: "https://www.cnbc.com/id/20910258/device/rss/rss.html", group: fed_rates }
+  - { id: marketwatch, name: MarketWatch Top, url: "https://feeds.content.dowjones.io/public/rss/mw_topstories", group: markets }
+  - { id: fxstreet, name: FXStreet, url: "https://www.fxstreet.com/rss/news", group: fed_rates }
+  - { id: kitco, name: Kitco, url: "https://www.kitco.com/rss/category/gold", group: gold, instruments: [GC] }
+  - { id: gnews_reuters, name: Reuters via Google News, url: "https://news.google.com/rss/search?q=site:reuters.com+(markets+OR+fed+OR+stocks+OR+gold)&hl=en-US&gl=US&ceid=US:en", group: markets }
+  - { id: gnews_bloomberg, name: Bloomberg via Google News, url: "https://news.google.com/rss/search?q=site:bloomberg.com+(markets+OR+fed+OR+stocks+OR+gold)&hl=en-US&gl=US&ceid=US:en", group: markets }
+groups:
+  fed_rates: [fed, fomc, powell, treasury, yield, rates, auction, inflation]
+  geopolitics: [war, ukraine, israel, iran, china, taiwan, sanction, tariff, missile]
+  earnings: [earnings, guidance, revenue, eps, after-hours]
+  central_banks: [ecb, boj, pboc, boe, snb, central bank]
+  physical_demand: [physical, jewel, india, china imports, mint]
+  etf_flows: [etf, inflow, outflow, holdings]
+lookback_hours: 18
+lexicon:
+  bullish_risk: [rally, surge, jump, gain, record, beat, upgrade, strong, soar, rebound, optimism, cut rates, dovish]
+  bearish_risk: [fall, drop, slump, plunge, miss, downgrade, weak, selloff, tumble, fear, recession, hawkish, hike, tariff, war]
+  gold_bull: [safe haven, geopolit, dollar weak, yields fall, rate cut, dovish, inflation]
+  gold_bear: [dollar strong, yields rise, hawkish, risk-on, hike]

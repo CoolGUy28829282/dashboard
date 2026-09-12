@@ -1,0 +1,118 @@
+{
+ "source": "synthetic",
+ "frozen_at": "2026-09-11T07:02:00-04:00",
+ "headlines": [
+  {
+   "title": "Futures edge higher after Nasdaq's late rebound; UMich sentiment due at 10 a.m.",
+   "url": "https://example.invalid/synthetic/0",
+   "published": "2026-09-10T13:32:00-04:00",
+   "source": "CNBC Top News",
+   "feed_id": "cnbc_top",
+   "summary": ""
+  },
+  {
+   "title": "Treasury yields slip as traders price a quarter-point Fed cut next week",
+   "url": "https://example.invalid/synthetic/1",
+   "published": "2026-09-10T14:50:00-04:00",
+   "source": "CNBC Economy",
+   "feed_id": "cnbc_econ",
+   "summary": ""
+  },
+  {
+   "title": "Nikkei closes at a record as chip stocks rally; DAX flat ahead of ECB comments",
+   "url": "https://example.invalid/synthetic/2",
+   "published": "2026-09-10T15:56:00-04:00",
+   "source": "Reuters via Google News",
+   "feed_id": "gnews_reuters",
+   "summary": ""
+  },
+  {
+   "title": "Oracle shares jump 9% after hours on cloud backlog; Nasdaq futures follow",
+   "url": "https://example.invalid/synthetic/3",
+   "published": "2026-09-10T17:38:00-04:00",
+   "source": "MarketWatch Top",
+   "feed_id": "marketwatch",
+   "summary": ""
+  },
+  {
+   "title": "Gold holds near $3,400 as the dollar softens; Kitco survey leans bullish",
+   "url": "https://example.invalid/synthetic/4",
+   "published": "2026-09-10T19:02:00-04:00",
+   "source": "Kitco",
+   "feed_id": "kitco",
+   "summary": ""
+  },
+  {
+   "title": "China's PBOC adds to gold reserves for a tenth month",
+   "url": "https://example.invalid/synthetic/5",
+   "published": "2026-09-10T20:14:00-04:00",
+   "source": "Kitco",
+   "feed_id": "kitco",
+   "summary": ""
+  },
+  {
+   "title": "Dollar index dips toward 98 as markets await inflation expectations print",
+   "url": "https://example.invalid/synthetic/6",
+   "published": "2026-09-10T21:26:00-04:00",
+   "source": "FXStreet",
+   "feed_id": "fxstreet",
+   "summary": ""
+  },
+  {
+   "title": "Oil steadies after OPEC+ signals no change to output plans",
+   "url": "https://example.invalid/synthetic/7",
+   "published": "2026-09-10T22:08:00-04:00",
+   "source": "Reuters via Google News",
+   "feed_id": "gnews_reuters",
+   "summary": ""
+  },
+  {
+   "title": "Bloomberg: Traders see FOMC delivering a cut but guiding cautiously",
+   "url": "https://example.invalid/synthetic/8",
+   "published": "2026-09-11T00:32:00-04:00",
+   "source": "Bloomberg via Google News",
+   "feed_id": "gnews_bloomberg",
+   "summary": ""
+  },
+  {
+   "title": "Apple supplier warns of weaker handset demand; shares fall in Asia",
+   "url": "https://example.invalid/synthetic/9",
+   "published": "2026-09-11T01:50:00-04:00",
+   "source": "Reuters via Google News",
+   "feed_id": "gnews_reuters",
+   "summary": ""
+  },
+  {
+   "title": "Silver extends gains toward $39.50 alongside gold",
+   "url": "https://example.invalid/synthetic/10",
+   "published": "2026-09-11T03:14:00-04:00",
+   "source": "Kitco",
+   "feed_id": "kitco",
+   "summary": ""
+  },
+  {
+   "title": "UK GDP unexpectedly stalls in July, pound slips",
+   "url": "https://example.invalid/synthetic/11",
+   "published": "2026-09-11T04:38:00-04:00",
+   "source": "FXStreet",
+   "feed_id": "fxstreet",
+   "summary": ""
+  },
+  {
+   "title": "S&P 500 futures flat; VIX near 16 ahead of quarterly OPEX next week",
+   "url": "https://example.invalid/synthetic/12",
+   "published": "2026-09-11T05:56:00-04:00",
+   "source": "MarketWatch Top",
+   "feed_id": "marketwatch",
+   "summary": ""
+  },
+  {
+   "title": "Futures edge higher after Nasdaq's late rebound; UMich sentiment due at 10 a.m.",
+   "url": "https://example.invalid/synthetic/13",
+   "published": "2026-09-11T06:26:00-04:00",
+   "source": "Reuters via Google News",
+   "feed_id": "gnews_reuters",
+   "summary": ""
+  }
+ ]
+}

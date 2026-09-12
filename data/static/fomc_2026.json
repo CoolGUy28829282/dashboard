@@ -1,0 +1,15 @@
+{
+  "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+  "fetched_on": null,
+  "verified": false,
+  "meetings": [
+    {"start": "2026-01-27", "end": "2026-01-28"},
+    {"start": "2026-03-17", "end": "2026-03-18"},
+    {"start": "2026-04-28", "end": "2026-04-29"},
+    {"start": "2026-06-16", "end": "2026-06-17"},
+    {"start": "2026-07-28", "end": "2026-07-29"},
+    {"start": "2026-09-15", "end": "2026-09-16"},
+    {"start": "2026-10-27", "end": "2026-10-28"},
+    {"start": "2026-12-08", "end": "2026-12-09"}
+  ]
+}

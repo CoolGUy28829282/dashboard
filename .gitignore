@@ -1,0 +1,16 @@
+.env
+backend/.venv/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.pytest_cache/
+**/__pycache__/
+frontend/node_modules/
+frontend/dist/
+data/cache/
+data/history/
+data/snapshots/*.json
+data/journal/*.json
+!data/snapshots/.gitkeep
+!data/journal/.gitkeep
+screenshots/
+data/evidence/
