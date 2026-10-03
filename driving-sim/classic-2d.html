@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Neon Drive</title>
+<style>
+  html,body{margin:0;height:100%;background:#07031a;overflow:hidden;touch-action:none}
+  canvas{display:block;width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+"use strict";
+/* NEON DRIVE ネオンドライブ — futuristic anime-style pseudo-3D driving sim.
+   Controls: W/Up accelerate · S/Down brake · A/D/Left/Right steer · Space drift (charges nitro)
+             Shift boost · M mute · Enter start. Touch: left/right thirds steer, middle boosts. */
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H, HOR, RMAX, HWF, hw = [], ctr = [];
+const K = 3000, CF = 0.004;
+const TAU = Math.PI * 2;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const curve = z => Math.sin(z / 1100) * 0.9 + Math.sin(z / 430 + 1.3) * 0.45 + Math.sin(z / 2600 + 4) * 0.7;
+
+// seeded rng so skyline / stars are stable
+let seed = 7;
+const srnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+const SPAN = 3200;
+const stars = Array.from({ length: 90 }, () => ({ x: srnd(), y: srnd() * 0.6, p: srnd() * TAU, s: 0.6 + srnd() * 1.6 }));
+const layers = [0, 1].map(l => {
+  const b = []; let x = 0;
+  while (x < SPAN) {
+    const w = 40 + srnd() * 90, h = (l ? 30 : 50) + srnd() * (l ? 70 : 150);
+    b.push({ x, w, h, s: srnd(), neon: srnd() > 0.5 ? '#3df5ff' : '#ff4fb8', ant: srnd() > 0.7 });
+    x += w + srnd() * 14;
+  }
+  return b;
+});
+
+function resize() {
+  W = cv.width = innerWidth; H = cv.height = innerHeight;
+  HOR = Math.floor(H * 0.42); RMAX = H - HOR; HWF = (W * 0.62) / RMAX;
+  for (let r = 0; r <= RMAX; r++) hw[r] = r * HWF;
+}
+addEventListener('resize', resize); resize();
+
+const S = { mode: 'title', pos: 0, x: 0, speed: 0, steer: 0, drift: 0, nitro: 30, boost: false, score: 0, time: 0,
+  shake: 0, impact: 0, skyOff: 0, best: 0, sparks: [], toasts: [], speedLines: [], flash: 0 };
+for (let i = 0; i < 46; i++) S.speedLines.push({ a: rnd(0, TAU), d: Math.random(), l: rnd(0.05, 0.25) });
+
+const PAL = [['#ffd23f', '#ff7b00'], ['#3df5ff', '#0a6cff'], ['#ff5ea8', '#a3199b'], ['#b6ff3c', '#1ba35b'], ['#f4f4ff', '#8f8fb8']];
+const cars = Array.from({ length: 14 }, (_, i) => newCar({ z: 300 + i * 150 + rnd(0, 80) }));
+function newCar(c = {}) {
+  c.z = c.z ?? S.pos + 1500 + rnd(0, 700);
+  c.lane = [-0.75, -0.25, 0.25, 0.75][Math.floor(Math.random() * 4)];
+  c.speed = rnd(60, 140); c.pal = PAL[Math.floor(Math.random() * PAL.length)];
+  c.hit = false; c.passed = false; c.vx = 0;
+  return c;
+}
+
+// ---------- input ----------
+const keys = {};
+let touchSteer = 0, touchBoost = false, touching = false;
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  if (e.code === 'Enter') start();
+  if (e.code === 'KeyM') toggleMute();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+function ptr(e) {
+  touching = e.touches && e.touches.length > 0;
+  if (!touching) { touchSteer = 0; touchBoost = false; return; }
+  const t = e.touches[0], f = t.clientX / W;
+  touchSteer = f < 0.33 ? -1 : f > 0.66 ? 1 : 0; touchBoost = f >= 0.33 && f <= 0.66;
+  if (S.mode === 'title') start();
+}
+['touchstart', 'touchmove', 'touchend'].forEach(n => addEventListener(n, ptr, { passive: true }));
+addEventListener('mousedown', () => { if (S.mode === 'title') start(); });
+const down = (...c) => c.some(k => keys[k]);
+
+// ---------- audio ----------
+let ac, osc, gain, muted = false;
+function startAudio() {
+  if (ac) return;
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    osc = ac.createOscillator(); osc.type = 'sawtooth';
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600;
+    gain = ac.createGain(); gain.gain.value = 0.03;
+    osc.connect(lp); lp.connect(gain); gain.connect(ac.destination); osc.start();
+  } catch (e) { ac = null; }
+}
+function toggleMute() { muted = !muted; if (gain) gain.gain.value = muted ? 0 : 0.03; }
+function blip(f, d = 0.12) {
+  if (!ac || muted) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'square'; o.frequency.value = f; g.gain.value = 0.04;
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+  o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
+}
+
+function start() {
+  startAudio();
+  if (S.mode === 'play') return;
+  Object.assign(S, { mode: 'play', pos: 0, x: 0, speed: 0, steer: 0, drift: 0, nitro: 30, score: 0, time: 0, shake: 0, impact: 0 });
+  cars.forEach(c => newCar(c)); cars.forEach((c, i) => { c.z = 300 + i * 150 + rnd(0, 80); });
+  toast('GO!', '#3df5ff');
+}
+function toast(text, color) { S.toasts.push({ text, color, t: 1.4 }); if (S.toasts.length > 3) S.toasts.shift(); }
+
+// ---------- update ----------
+function update(dt) {
+  const play = S.mode === 'play';
+  let steerIn = 0, thr = false, brk = false, boostIn = false, driftKey = false;
+  if (play) {
+    steerIn = (down('ArrowRight', 'KeyD') ? 1 : 0) - (down('ArrowLeft', 'KeyA') ? 1 : 0) + touchSteer;
+    thr = down('ArrowUp', 'KeyW') || touching; brk = down('ArrowDown', 'KeyS');
+    boostIn = down('ShiftLeft', 'ShiftRight', 'KeyB') || touchBoost; driftKey = down('Space');
+    S.time += dt;
+  } else { steerIn = Math.sin(performance.now() / 2200) * 0.5; thr = true; }
+  steerIn = clamp(steerIn, -1, 1);
+  S.steer += (steerIn - S.steer) * Math.min(1, dt * 8);
+
+  const off = Math.abs(S.x) > 1.05;
+  S.boost = boostIn && S.nitro > 0 && thr;
+  let vmax = S.boost ? 340 : 240; if (off) vmax = 90; if (!play) vmax = 150;
+  if (S.boost) { S.nitro = Math.max(0, S.nitro - 26 * dt); S.speed += 220 * dt; }
+  else if (thr) S.speed += 80 * dt * (1 - S.speed / 260);
+  else S.speed -= 30 * dt;
+  if (brk) S.speed -= 170 * dt;
+  if (S.speed > vmax) S.speed = S.boost ? vmax : Math.max(vmax, S.speed - (off ? 140 : 90) * dt);
+  S.speed = Math.max(0, S.speed);
+
+  const ch = curve(S.pos + 30), sf = S.speed / 240;
+  const drifting = play && driftKey && Math.abs(S.steer) > 0.2 && S.speed > 110;
+  S.drift += ((drifting ? Math.sign(S.steer) : 0) - S.drift) * Math.min(1, dt * 6);
+  S.x += S.steer * dt * sf * 1.9 * (drifting ? 1.35 : 1) - ch * dt * sf * 1.1 * (drifting ? 0.5 : 1);
+  S.x = clamp(S.x, -1.7, 1.7);
+  if (drifting) {
+    S.nitro = Math.min(100, S.nitro + 18 * dt * sf); S.score += dt * S.speed * 0.6;
+    for (let i = 0; i < 2; i++) S.sparks.push({ x: W / 2 + S.drift * -W * 0.07 + rnd(-30, 30), y: H * 0.93, vx: rnd(-160, 160) - S.drift * 120, vy: rnd(-380, -80), l: rnd(0.25, 0.6), c: Math.random() > 0.5 ? '#ffd23f' : '#3df5ff' });
+  }
+  if (off && S.speed > 40) S.shake = Math.max(S.shake, 4);
+
+  S.pos += S.speed * 1.2 * dt;
+  if (play) S.score += dt * S.speed * 0.1;
+  S.skyOff += ch * S.speed * dt * 0.02;
+
+  for (const c of cars) {
+    c.z += c.speed * 1.2 * dt; c.lane += c.vx * dt; c.vx *= 0.96;
+    const rel = c.z - S.pos;
+    if (rel < -40 || rel > 2400) { newCar(c); continue; }
+    if (!play) continue;
+    if (!c.hit && rel > 0 && rel < 16 && Math.abs(c.lane - S.x) < 0.3) {
+      c.hit = true; c.vx = Math.sign(c.lane - S.x || 1) * 1.2;
+      S.speed = Math.min(S.speed, c.speed * 0.8); S.nitro *= 0.5; S.impact = 0.14; S.shake = 18;
+      toast('CRASH!', '#ff4fb8'); blip(90, 0.3);
+    }
+    if (rel < 0 && !c.passed) {
+      c.passed = true;
+      if (!c.hit && Math.abs(c.lane - S.x) < 0.55 && S.speed > 120) {
+        S.score += 50; S.nitro = Math.min(100, S.nitro + 6); toast('CLOSE CALL +50', '#ffd23f'); blip(880, 0.08);
+      }
+    }
+  }
+  S.best = Math.max(S.best, S.score);
+  S.shake *= Math.pow(0.001, dt); S.impact = Math.max(0, S.impact - dt);
+  S.toasts.forEach(t => { t.t -= dt; }); S.toasts = S.toasts.filter(t => t.t > 0);
+  for (const p of S.sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; p.l -= dt; }
+  S.sparks = S.sparks.filter(p => p.l > 0);
+  const dl = dt * (0.15 + S.speed / 200) * (S.boost ? 1.8 : 1);
+  for (const l of S.speedLines) { l.d += dl * (0.6 + l.l * 2); if (l.d > 1) { l.d = 0; l.a = rnd(0, TAU); } }
+  if (osc) osc.frequency.value = 55 + S.speed * 0.9 + (S.boost ? 40 : 0);
+}
+
+// ---------- drawing helpers ----------
+function glow(x, y, r, color, a = 1) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a; ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.restore();
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, HOR);
+  g.addColorStop(0, '#0b0430'); g.addColorStop(0.55, '#4a1a7a'); g.addColorStop(0.85, '#ff3e9a'); g.addColorStop(1, '#ffb36b');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, HOR + 1);
+  const t = performance.now() / 600;
+  ctx.fillStyle = '#fff';
+  for (const s of stars) { ctx.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(t * s.s + s.p)); ctx.fillRect(s.x * W, s.y * HOR, s.s, s.s); }
+  ctx.globalAlpha = 1;
+  // sun with cel-shaded slit bands
+  const r = H * 0.17, cx = W / 2 - S.skyOff * 0.05 % (W * 0.4), cy = HOR - r * 0.3;
+  glow(cx, cy, r * 2.4, 'rgba(255,90,170,.8)', 0.7);
+  ctx.save(); ctx.beginPath();
+  const top = cy - r, total = r * 2;
+  ctx.rect(cx - r, top, r * 2, total * 0.45);
+  let y = top + total * 0.45;
+  for (let j = 0; y < cy + r; j++) { const h = total * 0.07 * (1 - j * 0.09), gap = total * (0.015 + j * 0.012); ctx.rect(cx - r, y + gap, r * 2, Math.max(1, h)); y += gap + h; }
+  ctx.clip();
+  const sg = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+  sg.addColorStop(0, '#fff176'); sg.addColorStop(0.5, '#ff9a5a'); sg.addColorStop(1, '#ff3e9a');
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill(); ctx.restore();
+  // skyline (two parallax layers)
+  layers.forEach((L, li) => {
+    const par = li ? 0.5 : 1, base = li ? '#2b1166' : '#12082f';
+    for (const b of L) {
+      for (const sh of [0, -SPAN]) {
+        const bx = ((b.x - S.skyOff * par) % SPAN + SPAN) % SPAN + sh;
+        if (bx > W || bx + b.w < 0) continue;
+        const top = HOR - b.h;
+        ctx.fillStyle = base; ctx.fillRect(bx, top, b.w, b.h + 2);
+        ctx.fillStyle = b.neon; ctx.globalAlpha = li ? 0.5 : 0.9; ctx.fillRect(bx, top, b.w, 2); ctx.globalAlpha = 1;
+        if (b.ant) { ctx.fillStyle = base; ctx.fillRect(bx + b.w / 2, top - 22, 2, 22); glow(bx + b.w / 2, top - 22, 8, '#ff2a6d', 0.9); }
+        if (!li) {
+          let q = b.s * 1000;
+          for (let wy = top + 8; wy < HOR - 6; wy += 9) for (let wx = bx + 4; wx < bx + b.w - 5; wx += 8) {
+            q = (q * 9301 + 49297) % 233280;
+            if (q / 233280 > 0.62) { ctx.fillStyle = q % 2 > 1 ? '#3df5ff' : '#ffe27a'; ctx.globalAlpha = 0.85; ctx.fillRect(wx, wy, 3, 4); }
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  });
+}
+
+function drawCar(cx, by, w, pal, o = {}) {
+  const h = w * 0.52, lw = Math.max(1, w * 0.024);
+  ctx.save(); ctx.translate(cx, by); if (o.tilt) ctx.rotate(o.tilt);
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(0, 0, w * 0.56, h * 0.1, 0, 0, TAU); ctx.fill();
+  if (o.under) glow(0, -h * 0.05, w * 0.75, o.under, 0.6);
+  ctx.lineJoin = 'round'; ctx.strokeStyle = '#05010f'; ctx.lineWidth = lw;
+  ctx.fillStyle = '#0a0a14';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.rect(s * w * 0.5 - w * 0.09, -h * 0.34, w * 0.18, h * 0.34); ctx.fill(); ctx.stroke(); }
+  const bg = ctx.createLinearGradient(0, -h * 0.6, 0, 0); bg.addColorStop(0, pal[0]); bg.addColorStop(0.55, pal[1]); bg.addColorStop(1, '#14052e');
+  ctx.fillStyle = bg; ctx.beginPath();
+  ctx.moveTo(-w * 0.5, -h * 0.08); ctx.lineTo(-w * 0.53, -h * 0.42); ctx.lineTo(-w * 0.38, -h * 0.6); ctx.lineTo(w * 0.38, -h * 0.6); ctx.lineTo(w * 0.53, -h * 0.42); ctx.lineTo(w * 0.5, -h * 0.08);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  const cg = ctx.createLinearGradient(0, -h, 0, -h * 0.58); cg.addColorStop(0, '#6a35d8'); cg.addColorStop(1, '#150a3a');
+  ctx.fillStyle = cg; ctx.beginPath();
+  ctx.moveTo(-w * 0.35, -h * 0.58); ctx.lineTo(-w * 0.25, -h * 0.97); ctx.lineTo(w * 0.25, -h * 0.97); ctx.lineTo(w * 0.35, -h * 0.58);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // anime window glint
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath();
+  ctx.moveTo(-w * 0.2, -h * 0.9); ctx.lineTo(-w * 0.08, -h * 0.9); ctx.lineTo(-w * 0.17, -h * 0.64); ctx.lineTo(-w * 0.27, -h * 0.64); ctx.closePath(); ctx.fill();
+  // spoiler
+  ctx.fillStyle = pal[1]; ctx.beginPath(); ctx.rect(-w * 0.5, -h * 0.72, w, h * 0.08); ctx.fill(); ctx.stroke();
+  // diffuser + tail light bar
+  ctx.fillStyle = '#05010f'; ctx.fillRect(-w * 0.3, -h * 0.2, w * 0.6, h * 0.12);
+  ctx.fillStyle = o.boost ? '#fff' : '#ff2a6d';
+  ctx.fillRect(-w * 0.47, -h * 0.4, w * 0.94, h * 0.07);
+  glow(-w * 0.35, -h * 0.36, w * 0.22, '#ff2a6d', o.brake ? 1 : 0.7); glow(w * 0.35, -h * 0.36, w * 0.22, '#ff2a6d', o.brake ? 1 : 0.7);
+  if (o.boost) for (const s of [-1, 1]) { glow(s * w * 0.18, -h * 0.12, w * 0.35, '#3df5ff', 1); glow(s * w * 0.18, -h * 0.12, w * 0.18, '#fff', 1); }
+  ctx.restore();
+}
+
+function drawWorld() {
+  // ground / road rows with perspective + curvature
+  let x = 0, dx = 0;
+  for (let r = RMAX; r >= 2; r--) {
+    const zr = K / r, zw = S.pos + zr, band = Math.floor(zw / 50) & 1;
+    dx += curve(zw) * CF; x += dx;
+    const c = W / 2 + x - S.x * hw[r]; ctr[r] = c;
+    const y = HOR + r, w = hw[r];
+    ctx.fillStyle = band ? '#0f0528' : '#150835'; ctx.fillRect(0, y, W, 1);
+    ctx.fillStyle = band ? '#ff2a9d' : '#3df5ff'; ctx.fillRect(c - w * 1.07, y, w * 2.14, 1);
+    ctx.fillStyle = band ? '#1c1238' : '#241a46'; ctx.fillRect(c - w * 0.96, y, w * 1.92, 1);
+    ctx.fillStyle = '#7ef9ff'; ctx.fillRect(c - w * 0.98, y, w * 0.04, 1); ctx.fillRect(c + w * 0.94, y, w * 0.04, 1);
+    if (band) { ctx.fillStyle = '#d8d0ff'; const lw = Math.max(1, w * 0.012); for (const l of [-0.5, 0, 0.5]) ctx.fillRect(c + l * w - lw, y, lw * 2, 1); }
+  }
+  const hg = ctx.createLinearGradient(0, HOR - 4, 0, HOR + 90);
+  hg.addColorStop(0, 'rgba(255,150,170,.55)'); hg.addColorStop(1, 'rgba(255,60,160,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0, HOR - 4, W, 94);
+
+  // collect roadside props + traffic, draw far → near
+  const items = [], P = 70, i0 = Math.floor(S.pos / P);
+  for (let i = 1; i < 42; i++) {
+    const idx = i0 + i, rel = idx * P - S.pos, r = K / rel;
+    if (r < 3 || r > RMAX) continue;
+    items.push({ r, kind: 'pylon', idx });
+  }
+  for (const c of cars) { const rel = c.z - S.pos, r = K / rel; if (rel > 4 && r > 2 && r <= RMAX) items.push({ r, kind: 'car', c }); }
+  items.sort((a, b) => a.r - b.r);
+  for (const it of items) {
+    const ri = Math.round(it.r), c = ctr[ri], w = hw[ri], by = HOR + it.r;
+    if (c === undefined) continue;
+    if (it.kind === 'car') {
+      drawCar(c + it.c.lane * w, by, w * 0.34, it.c.pal, { tilt: it.c.vx * 0.2 });
+    } else {
+      const col = it.idx % 2 ? '#3df5ff' : '#ff4fb8', ph = w * 0.9, pw = Math.max(1.5, w * 0.03);
+      const gate = it.idx % 12 === 0;
+      for (const s of gate ? [-1, 1] : [-1, 1]) {
+        const px = c + s * 1.22 * w;
+        ctx.fillStyle = '#1a0f3a'; ctx.fillRect(px - pw / 2, by - ph, pw, ph);
+        ctx.fillStyle = col; ctx.fillRect(px - pw / 2, by - ph, pw * 0.4, ph);
+        glow(px, by - ph, w * 0.12 + 4, col, 0.95);
+      }
+      if (gate) {
+        const gx0 = c - 1.22 * w, gx1 = c + 1.22 * w, gy = by - ph * 1.0;
+        ctx.fillStyle = 'rgba(10,4,30,.9)'; ctx.fillRect(gx0, gy - w * 0.16, gx1 - gx0, w * 0.2);
+        ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, w * 0.012); ctx.strokeRect(gx0, gy - w * 0.16, gx1 - gx0, w * 0.2);
+        ctx.fillStyle = col; ctx.font = `bold ${Math.max(6, w * 0.13)}px sans-serif`; ctx.textAlign = 'center';
+        ctx.fillText(['加速', 'ネオン', '夜明け', '疾走'][(it.idx / 12 | 0) % 4], c, gy - w * 0.02);
+        glow(c, gy - w * 0.06, w * 0.6, col, 0.35);
+      }
+    }
+  }
+}
+
+function drawPlayer() {
+  const w = hw[RMAX] * 0.34, cx = W / 2 + S.steer * W * 0.012 + S.drift * -W * 0.03, by = H * 0.955;
+  drawCar(cx, by, w, ['#ff2e63', '#7a0f5f'], { tilt: S.steer * 0.03 + S.drift * 0.1, under: '#3df5ff', boost: S.boost, brake: down('ArrowDown', 'KeyS') });
+}
+
+function drawSpeedLines() {
+  const k = clamp((S.speed - 120) / 200, 0, 1) + (S.boost ? 0.4 : 0);
+  if (k <= 0.02) return;
+  const R = Math.hypot(W, H) * 0.6, vx = W / 2, vy = HOR;
+  ctx.lineCap = 'round';
+  for (const l of S.speedLines) {
+    if (l.d < 0.3) continue;
+    const d0 = l.d * R, d1 = Math.min(R, (l.d + l.l * k) * R), ca = Math.cos(l.a), sa = Math.sin(l.a);
+    ctx.strokeStyle = S.boost ? 'rgba(120,250,255,' + 0.55 * k + ')' : 'rgba(255,255,255,' + 0.35 * k + ')';
+    ctx.lineWidth = 1 + l.d * 3;
+    ctx.beginPath(); ctx.moveTo(vx + ca * d0, vy + sa * d0); ctx.lineTo(vx + ca * d1, vy + sa * d1); ctx.stroke();
+  }
+}
+
+function skew(x, y, w, h, fill, k = -0.25) {
+  ctx.save(); ctx.translate(x, y); ctx.transform(1, 0, k, 1, 0, 0); ctx.fillStyle = fill; ctx.fillRect(0, 0, w, h); ctx.restore();
+}
+function drawHUD() {
+  const u = Math.max(12, Math.min(W, H) / 40);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  skew(u, u, u * 12, u * 3.4, 'rgba(10,4,30,.65)');
+  ctx.fillStyle = '#3df5ff'; ctx.font = `bold ${u * 0.8}px monospace`; ctx.fillText('SCORE  スコア', u * 1.8, u * 2.2);
+  ctx.fillStyle = '#fff'; ctx.font = `italic 900 ${u * 1.6}px monospace`; ctx.fillText(String(Math.floor(S.score)).padStart(6, '0'), u * 1.6, u * 3.9);
+  const t = S.time, mm = String(Math.floor(t / 60)).padStart(2, '0'), ss = String(Math.floor(t % 60)).padStart(2, '0');
+  ctx.textAlign = 'right'; skew(W - u * 9.5, u, u * 8.5, u * 2.4, 'rgba(10,4,30,.65)');
+  ctx.fillStyle = '#ff4fb8'; ctx.font = `bold ${u * 0.8}px monospace`; ctx.fillText('TIME', W - u * 2, u * 2);
+  ctx.fillStyle = '#fff'; ctx.font = `italic 900 ${u * 1.3}px monospace`; ctx.fillText(`${mm}:${ss}`, W - u * 2, u * 3.1);
+  // speedometer
+  const sx = W - u * 1.5, sy = H - u * 4.2;
+  skew(sx - u * 11.5, sy - u * 4, u * 11, u * 7, 'rgba(10,4,30,.65)');
+  ctx.fillStyle = S.boost ? '#7ef9ff' : '#fff'; ctx.font = `italic 900 ${u * 4}px monospace`; ctx.textAlign = 'right';
+  ctx.fillText(String(Math.round(S.speed)), sx - u * 3.4, sy);
+  ctx.font = `bold ${u * 0.9}px monospace`; ctx.fillStyle = '#3df5ff'; ctx.fillText('km/h', sx - u * 1.2, sy);
+  // nitro bar
+  const bx = sx - u * 10.8, by = sy + u * 1.4, bw = u * 9.6, bh = u * 0.9;
+  skew(bx, by, bw, bh, 'rgba(255,255,255,.15)');
+  const ng = ctx.createLinearGradient(bx, 0, bx + bw, 0); ng.addColorStop(0, '#3df5ff'); ng.addColorStop(1, '#ff4fb8');
+  skew(bx, by, bw * S.nitro / 100, bh, ng);
+  ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = `bold ${u * 0.7}px monospace`; ctx.fillText('NITRO  ブースト', bx, by - u * 0.3);
+  // toasts
+  ctx.textAlign = 'center';
+  S.toasts.forEach((t, i) => {
+    const a = Math.min(1, t.t * 2), sc = 1 + (1.4 - t.t) * 0.08;
+    ctx.save(); ctx.translate(W / 2, H * 0.28 + i * u * 2.6); ctx.rotate(-0.05); ctx.scale(sc, sc); ctx.globalAlpha = a;
+    ctx.font = `italic 900 ${u * 2.4}px sans-serif`; ctx.lineWidth = u * 0.5; ctx.strokeStyle = '#12052e'; ctx.lineJoin = 'round';
+    ctx.strokeText(t.text, 0, 0); ctx.fillStyle = t.color; ctx.fillText(t.text, 0, 0); ctx.restore();
+  });
+  if (S.mode === 'play' && S.speed < 3 && S.time > 1.5) { ctx.fillStyle = '#fff'; ctx.font = `bold ${u * 1.2}px sans-serif`; ctx.fillText('Hold W / ↑ to drive', W / 2, H * 0.5); }
+}
+
+function drawTitle() {
+  const u = Math.max(12, Math.min(W, H) / 40);
+  ctx.fillStyle = 'rgba(7,3,26,.45)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.save(); ctx.translate(W / 2, H * 0.3); ctx.rotate(-0.04); ctx.transform(1, 0, -0.15, 1, 0, 0);
+  ctx.font = `italic 900 ${u * 5.5}px sans-serif`; ctx.lineJoin = 'round'; ctx.lineWidth = u * 0.9; ctx.strokeStyle = '#12052e';
+  ctx.strokeText('NEON DRIVE', 0, 0);
+  const g = ctx.createLinearGradient(0, -u * 4, 0, u); g.addColorStop(0, '#fff176'); g.addColorStop(0.5, '#ff9ad5'); g.addColorStop(1, '#3df5ff');
+  ctx.fillStyle = g; ctx.fillText('NEON DRIVE', 0, 0);
+  ctx.font = `bold ${u * 1.8}px sans-serif`; ctx.fillStyle = '#fff'; ctx.strokeText('ネオンドライブ', 0, u * 2.6); ctx.fillText('ネオンドライブ', 0, u * 2.6);
+  ctx.restore();
+  const blink = 0.55 + 0.45 * Math.sin(performance.now() / 280);
+  ctx.globalAlpha = blink; ctx.fillStyle = '#7ef9ff'; ctx.font = `bold ${u * 1.5}px monospace`;
+  ctx.fillText('PRESS ENTER / TAP TO START', W / 2, H * 0.52); ctx.globalAlpha = 1;
+  ctx.font = `${u * 0.9}px monospace`; ctx.fillStyle = '#e9e1ff';
+  ['W / ↑  accelerate     S / ↓  brake     A D / ← →  steer', 'SPACE  drift (charges nitro)     SHIFT  boost     M  mute',
+    'Weave through traffic · near misses give score + nitro'].forEach((s, i) => ctx.fillText(s, W / 2, H * 0.6 + i * u * 1.5));
+  if (S.best > 0) ctx.fillText('BEST ' + Math.floor(S.best), W / 2, H * 0.6 + u * 5.5);
+}
+
+function frame() {
+  ctx.save();
+  if (S.shake > 0.3) ctx.translate(rnd(-S.shake, S.shake), rnd(-S.shake, S.shake));
+  if (S.boost) { ctx.translate(W / 2, HOR); ctx.scale(1.03, 1.03); ctx.translate(-W / 2, -HOR); }
+  drawSky(); drawWorld(); drawPlayer();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const p of S.sparks) { ctx.globalAlpha = clamp(p.l * 3, 0, 1); ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 3, 3); }
+  ctx.restore();
+  drawSpeedLines();
+  ctx.restore();
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+  vg.addColorStop(0, 'rgba(5,0,20,0)'); vg.addColorStop(1, 'rgba(5,0,20,.7)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  if (S.mode === 'title') drawTitle(); else drawHUD();
+  if (S.impact > 0) { // anime impact frame: inverted flash with burst lines
+    ctx.save(); ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    for (let i = 0; i < 36; i++) { const a = i / 36 * TAU, r0 = Math.min(W, H) * 0.15; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * r0, H * 0.7 + Math.sin(a) * r0); ctx.lineTo(W / 2 + Math.cos(a) * W, H * 0.7 + Math.sin(a) * W); ctx.stroke(); }
+  }
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt); frame();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+window.__neon = S; // debug hook
+</script>
+</body>
+</html>
