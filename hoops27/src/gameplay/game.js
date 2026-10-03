@@ -205,7 +205,7 @@ export class Game {
   releaseBallToLoose() { const p = this.ball.holder; if (!p) return; this.setLoose(A.handPos(p, 0.8), { x: 0, y: 0, z: 0 }); }
   reboundWon(p, off) {
     p.rebTime = this.t;
-    this.giveBall(p, { quiet: true });
+    this.giveBall(p, { quiet: true }); p.dribbling = false; p.holdUntil = this.t + 0.45;
     this.clockOn = true;
     if (off) { this.poss.shotClock = Math.max(this.poss.shotClock > 14 ? 14 : this.poss.shotClock, RULES.shotClockOreb); if (this.poss.shotClock < RULES.shotClockOreb) this.poss.shotClock = RULES.shotClockOreb; }
     this.poss.crossed = this.crossedFor(p.team);
@@ -514,6 +514,7 @@ export class Game {
       p.intent = intent;
       p.protect = Math.max(0, (p.protect ?? 0) - dt);
       if (this.phase === 'live' || this.phase === 'inbound' || this.phase === 'ft') this.applyActions(p, intent, dt);
+      if (!p.dribbling && p.holdUntil && this.t > p.holdUntil && p.hasBall && !p.action) { p.dribbling = true; p.holdUntil = 0; }
       if (!p.action && p.y > 0) { p.vy -= 9.81 * dt; p.y = Math.max(0, p.y + p.vy * dt); if (p.y <= 0) { p.vy = 0; } }
       A.updateShotAction(this, p, dt, intent);
       A.updateBlockAction(this, p, dt);
@@ -558,18 +559,27 @@ export class Game {
       const p = b.holder;
       const spd = Math.hypot(p.vel.x, p.vel.z);
       if (p.action && (p.action.kind === 'shoot' || p.action.kind === 'ft' || p.action.kind === 'layup' || p.action.kind === 'dunk')) {
-        const rel = (p.data.form.releaseHeight * p.height) / 2.0;
-        const u = clamp(p.action.t / p.action.D, 0, 1);
-        const ah = p.action.type === 'layup' || p.action.type === 'dunk' ? 1.0 + u * (rel - 1.0) : 1.0 + Math.pow(u, 1.5) * (rel - 1.0);
-        b.pos = { x: p.pos.x + Math.cos(p.face) * (0.2 + 0.1 * u), y: p.y + ah, z: p.pos.z + Math.sin(p.face) * (0.2 + 0.1 * u) };
-      } else if (p.action?.kind === 'pump') {
+        const A_ = p.action, s_ = p.height / 1.98, fx = Math.cos(p.face), fz = Math.sin(p.face), rx = -fz, rz = fx; // right-hand side vector
+        const rel = (p.data.form.releaseHeight * p.height) / 2.0; const tL = A_.load ?? 0.2, D = A_.D;
+        let ah, fwd, lat;
+        if (A_.t < tL) { // catch height -> dip to the set point near the shooting hip/chest as the knees load
+          const k = clamp(A_.t / Math.max(tL, 1e-3), 0, 1), e = k * k * (3 - 2 * k); ah = (1.28 + (0.98 - 1.28) * e) * s_; fwd = 0.3 - 0.07 * e; lat = 0.1 * e;
+          if (A_.variant === 'euro') lat = (k < 0.5 ? 0.5 : -0.4) * Math.sin(k * Math.PI) * 1.0; // swept wide and protected during the euro-step strides
+        } else { // straight line up the body: explosive (ease-in), elbow tucked under the ball, release at the apex
+          const k = clamp((A_.t - tL) / Math.max(D - tL, 1e-3), 0, 1), e = k * k * (1.5 - 0.5 * k); ah = (0.98 * s_) + (rel - 0.98 * s_) * e; fwd = 0.23 - 0.1 * e; lat = 0.1 * (1 - e);
+        }
+        b.pos = { x: p.pos.x + fx * fwd + rx * lat, y: p.y + ah, z: p.pos.z + fz * fwd + rz * lat };      } else if (p.action?.kind === 'pump') {
         b.pos = { x: p.pos.x + Math.cos(p.face) * 0.2, y: p.y + 1.55, z: p.pos.z + Math.sin(p.face) * 0.2 };
+      } else if (p.holdUntil > this.t && !p.dribbling) { // rebound / gather: ball pulled to the chest, elbows out
+        const fx = Math.cos(p.face), fz = Math.sin(p.face); b.pos = { x: p.pos.x + fx * 0.3, y: p.y + 1.15 * (p.height / 1.98), z: p.pos.z + fz * 0.3 };
       } else if (p.dribbling) {
-        p.dribblePh += dt / (0.62 - 0.22 * clamp(spd / 6, 0, 1));
+        p.handSide = (p.handSide ?? p.dribbleHand) + (p.dribbleHand - (p.handSide ?? p.dribbleHand)) * Math.min(1, dt * 16); // the ball travels across the body over ~4 frames on a crossover
+        const hardLow = p.action?.kind === 'move' && p.action.type !== 'spin'; // crossovers and hesitations: hard, knee-high dribbles
+        p.dribblePh += dt / (0.62 - 0.22 * clamp(spd / 6, 0, 1) - (hardLow ? 0.1 : 0));
         const ph = p.dribblePh % 1;
         const hp = A.handPos(p, 0);
         const protect = this.protectOffset(p);
-        const h = BALL_R + (0.95 - BALL_R) * Math.abs(Math.cos(Math.PI * ph));
+        const h = BALL_R + ((hardLow ? 0.62 : 0.95) * (p.height / 1.98) - BALL_R) * Math.abs(Math.cos(Math.PI * ph));
         b.pos = { x: hp.x + protect.x + p.vel.x * 0.05, y: h, z: hp.z + protect.z + p.vel.z * 0.05 };
         const crossing = ph < (p._lastPh ?? 1) && (p._lastPh ?? 1) > 0.9 ? false : false; void crossing;
         if ((p._lastPh ?? 0) < 0.5 && ph >= 0.5) this.bus.emit('dribble', { player: p, pos: { ...b.pos } });

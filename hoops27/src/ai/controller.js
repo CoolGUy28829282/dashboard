@@ -397,7 +397,7 @@ export class AIController {
     if (!off) { // box out
       const man = p.guard ?? g.teams[1 - p.team].court[0];
       const t = interpose(man.pos, rim, 0.35); const a = arrive(p, t, 0.6); I.mx = a.x; I.mz = a.z; I.sprint = a.d > 3;
-      if (dist2(p.pos, man.pos) < 1.5) man.boxedUntil = g.t + 0.6;
+      if (dist2(p.pos, man.pos) < 1.5) { man.boxedUntil = g.t + 0.6; p.boxUntil = g.t + 0.6; }
       I.handsUp = true;
     } else {
       const crash = (p.data.attrs.reb + (p.data.pos === 'C' || p.data.pos === 'PF' ? 18 : -10) + (p.ai.slot === 0 ? -40 : 0) + Math.random() * 20) > 95;
@@ -417,7 +417,7 @@ export class AIController {
     const chase = rank < 3 || p.data.attrs.reb > 80 && rank < 4;
     if (chase) {
       const a = arrive(p, land, 0.4); I.mx = a.x; I.mz = a.z; I.sprint = a.d > 1; I.handsUp = true;
-      if (a.d < 1.6 && b.pos.y > 1.8 && b.pos.y < 4 && !p.action && p.y === 0 && Math.random() < 0.12) { p.action = { kind: 'oopjump', t: 0, dur: 0.6 }; p.vy = 3.2 + p.data.attrs.vertical / 40; }
+      if (a.d < 1.6 && b.pos.y > 1.8 && b.pos.y < 4 && !p.action && p.y === 0 && Math.random() < 0.12) { p.action = { kind: 'oopjump', rebound: true, t: 0, dur: 0.6 }; p.vy = 3.2 + p.data.attrs.vertical / 40; }
     } else {
       const side = g.dirOf(g.poss.team);
       const mate = p.team === g.poss.team; const rim = { x: hoopX(Math.sign(land.x) || side), z: 0 };

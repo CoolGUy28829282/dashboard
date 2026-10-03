@@ -63,7 +63,7 @@ export class Renderer {
   render(dt, camSpeed = 0) {
     this.caTarget = Math.max(0, this.caTarget - dt * 0.04); this.caAmount += (this.caTarget - this.caAmount) * Math.min(1, dt * 14);
     const u = this.fx.uniforms;
-    u.aberration.value = this.cfg.ca && !this.cfg.reducedMotion ? this.caAmount : 0;
+    u.aberration.value = this.cfg.ca && !this.cfg.reducedMotion ? this.caAmount * 0.5 : 0;
     if (this.cfg.motionBlur && !this.cfg.reducedMotion) { const b = Math.min(0.012, camSpeed * 0.0006); u.blurDir.value.set(b, 0); } else u.blurDir.value.set(0, 0);
     this.composer.render(dt);
   }

@@ -104,7 +104,14 @@ export class GameView {
       const ballPos = R ? this.replayBall(R) : this.renderBall(alpha);
       const celebrating = (this.celebrate.get(rt) ?? 0) > g.t;
       const isActive = !R && activeCtrl.includes(rt);
-      a.update(dt, proxy, ballPos, { defense, celebrate: celebrating, active: isActive, ringColor: isActive ? '#ffffff' : rt.hasBall ? rt.data ? this.g.teams[rt.team].data.colors.secondary : undefined : undefined });
+      // eyes: ball handler / shooter look at the rim or the nearest defender, defenders look at the ball handler, everyone else at the ball
+      let look = ballPos, closeout = false; const holder = g.ball.holder;
+      if (!R) {
+        const side = g.dirOf(rt.team);
+        if (rt.hasBall) { let nd = null, nb = 3; for (const q of g.teams[1 - rt.team].court) { const d = Math.hypot(q.pos.x - rt.pos.x, q.pos.z - rt.pos.z); if (d < nb) { nb = d; nd = q; } } look = rt.action ? { x: hoopX(side), y: 3.05, z: 0 } : nd ? { x: nd.pos.x, y: nd.height * 0.92, z: nd.pos.z } : { x: hoopX(side), y: 3.05, z: 0 }; }
+        else if (defense && holder) { look = { x: holder.pos.x, y: holder.height * 0.9, z: holder.pos.z }; const dd = Math.hypot(holder.pos.x - rt.pos.x, holder.pos.z - rt.pos.z); closeout = dd < 5.5 && dd > 1.2 && g.t - holder.catchTime < 1.5; }
+      }
+      a.update(dt, proxy, ballPos, { defense, celebrate: celebrating, active: isActive, look, closeout, boxing: !R && (rt.boxUntil ?? 0) > g.t, ringColor: isActive ? '#ffffff' : rt.hasBall ? rt.data ? this.g.teams[rt.team].data.colors.secondary : undefined : undefined });
       if (!R && rt.run >= 4 && Math.random() < 0.8) this.fx.flame({ x: proxy.pos.x, y: 0.9, z: proxy.pos.z }, Math.random() < 0.5 ? COLORS.amber : COLORS.danger);
       void saved;
     }

@@ -25,8 +25,8 @@ const aiLevel = (g) => AI.levels[g.settings.difficulty] ?? AI.levels.allstar;
 export const opp = (g, p) => g.teams[1 - p.team];
 export const attackSide = (g, team) => g.dirOf(team);
 
-export function handPos(p, h = 1.0) {
-  const side = p.dribbleHand;
+export function handPos(p, h = 1.0, sideOverride) {
+  const side = sideOverride ?? p.handSide ?? p.dribbleHand;
   const f = { x: Math.cos(p.face), z: Math.sin(p.face) };
   return { x: p.pos.x + f.x * 0.42 - f.z * 0.22 * side, y: p.y + h, z: p.pos.z + f.z * 0.42 + f.x * 0.22 * side };
 }
@@ -91,7 +91,7 @@ export function beginShot(g, p, intent) {
   const sd = lv.timingSd * 1.3 * (AI.timingSdByType[v.type] ?? 1) * (1.35 - rating / 110) * (1 + 0.35 * (p.ai.pressure ?? 0));
   const offsetMs = human ? null : gaussian(Math.random, 0, sd);
   p.action = {
-    kind: v.type === 'ft' ? 'ft' : v.type === 'dunk' ? 'dunk' : v.type === 'layup' ? 'layup' : 'shoot', t: 0, dur: D * 2, D, hold: v.type !== 'layup' && v.type !== 'dunk' && v.type !== 'floater',
+    kind: v.type === 'ft' ? 'ft' : v.type === 'dunk' ? 'dunk' : v.type === 'layup' ? 'layup' : 'shoot', t: 0, D, load: D * (v.type === 'ft' ? 0.3 : rimLike ? 0.22 : 0.3), air: D * (v.type === 'ft' ? 0.7 : rimLike ? 0.78 : 0.7), dur: D * (v.type === 'ft' ? 1.0 : 1.78) + 0.4, hold: v.type !== 'layup' && v.type !== 'dunk' && v.type !== 'floater',
     variant: variantKey, type: v.type, rating, jumpH, dist, startPos: { ...p.pos }, startSpeed: sp, offDribble: sp > 2.2 && p.dribbling, offBalance: (v.type === 'fadeaway' ? false : sp > 4.8) || p.stumble > 0,
     spaced: !(v.type === 'dunk' && rimProtected(g, p, side)), catchShoot: g.t - p.catchTime < 0.9 && sp < 3, released: false, plannedMs: offsetMs, human: !!human, side, momentum: p.momentum,
   };
@@ -106,11 +106,11 @@ export function updateShotAction(g, p, dt, intent) {
   if (!a || (a.kind !== 'shoot' && a.kind !== 'layup' && a.kind !== 'dunk' && a.kind !== 'ft')) return;
   a.t += dt;
   p.shotMeter.t = a.t;
-  // jump arc: apex at t = D
+  // jump timeline: load on the ground (knees flex), explosive rise to the apex at t = D (release at the peak), fall, land
   if (a.type !== 'ft') {
-    const u = (a.t - a.D) / a.D;
-    p.y = Math.max(0, a.jumpH * (1 - u * u));
-    p.vy = -2 * a.jumpH * u / a.D;
+    if (a.t < a.load) { p.y = 0; p.vy = 0; }
+    else if (a.t <= a.D) { const u = (a.D - a.t) / (a.D - a.load); p.y = a.jumpH * (1 - u * u); p.vy = (2 * a.jumpH * u) / (a.D - a.load); }
+    else { const u = (a.t - a.D) / a.air; p.y = Math.max(0, a.jumpH * (1 - u * u)); p.vy = (-2 * a.jumpH * u) / a.air; }
     if (a.type === 'layup' || a.type === 'dunk' || a.type === 'floater') {
       // drive to the rim: finish within ~0.7m (dunk) / 1.1m (layup)
       const rim = rimOf(a.side), dx = rim.x - p.pos.x, dz = rim.z - p.pos.z, d = Math.hypot(dx, dz);
@@ -119,6 +119,8 @@ export function updateShotAction(g, p, dt, intent) {
       const want = a.t < a.D ? clamp((d - stop) / left, 0, 7.5) : 0;
       p.vel.x += (dx / (d || 1) * want - p.vel.x) * Math.min(1, dt * 8); p.vel.z += (dz / (d || 1) * want - p.vel.z) * Math.min(1, dt * 8);
       p.face = Math.atan2(dz, dx);
+    } else if (a.t < a.load) { // gather: feet set, momentum bleeds off into the load
+      p.vel.x *= 1 - Math.min(1, dt * 6); p.vel.z *= 1 - Math.min(1, dt * 6);
     } else {
       p.vel.x *= 1 - Math.min(1, dt * (a.type === 'fadeaway' ? 1.5 : 3)); p.vel.z *= 1 - Math.min(1, dt * (a.type === 'fadeaway' ? 1.5 : 3));
       if (a.type === 'fadeaway') { p.vel.x += -Math.cos(p.face) * dt * 2; p.vel.z += -Math.sin(p.face) * dt * 2; }
@@ -131,12 +133,12 @@ export function updateShotAction(g, p, dt, intent) {
     let go = false;
     if (a.human) {
       if (intent.shootReleased || (!intent.shootHeld && a.t > 0.05 && !intent.shootPressed)) go = true;
-      if (a.t >= a.D * 2 - 0.02) go = true;
-    } else go = a.t >= Math.max(a.D * 0.35, a.D + a.plannedMs / 1000);
+      if (a.t >= a.D + (a.type === 'ft' ? 0.35 : a.air * 0.45)) go = true;
+    } else go = a.t >= Math.max(a.load + 0.06, a.D + a.plannedMs / 1000);
     if (go) releaseShot(g, p);
   }
-  if (a.t >= a.dur) { p.action = null; p.y = 0; p.vy = 0; p.shotMeter = null; }
-  else if (a.released && a.t >= a.D * 1.9) { p.action = null; p.y = 0; p.vy = 0; p.shotMeter = null; }
+  const landed = a.type === 'ft' ? a.t >= a.D + 0.5 : a.t >= a.D + a.air + 0.28;
+  if (a.t >= a.dur || (a.released && landed)) { p.action = null; p.y = 0; p.vy = 0; p.shotMeter = null; }
 }
 
 function shotWindow(g, p, a, contest) {
