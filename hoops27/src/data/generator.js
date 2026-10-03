@@ -60,9 +60,9 @@ const STYLE_TEND = {
 };
 
 export const ARENAS = [
-  { id: 'helix', name: 'Helix Dome', accent: '#00F0FF', accent2: '#FF2BD6', floorTint: '#0a1a2e', crowdDensity: 1.0 },
-  { id: 'prism', name: 'Prism Garden', accent: '#FF2BD6', accent2: '#FFB000', floorTint: '#1a0a24', crowdDensity: 0.9 },
-  { id: 'apex', name: 'Apex Forum', accent: '#B6FF00', accent2: '#00F0FF', floorTint: '#0c1a10', crowdDensity: 1.1 },
+  { id: 'helix', paint: '#1d4f9f', name: 'Helix Dome', accent: '#00F0FF', accent2: '#FF2BD6', floorTint: '#0a1a2e', crowdDensity: 1.0 },
+  { id: 'prism', paint: '#9c1c3b', name: 'Prism Garden', accent: '#FF2BD6', accent2: '#FFB000', floorTint: '#1a0a24', crowdDensity: 0.9 },
+  { id: 'apex', paint: '#14683a', name: 'Apex Forum', accent: '#B6FF00', accent2: '#00F0FF', floorTint: '#0c1a10', crowdDensity: 1.1 },
 ];
 
 function genPlayer(rng, teamId, idx, pos, tier, usedNums, usedArch) {

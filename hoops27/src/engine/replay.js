@@ -6,7 +6,7 @@ export class ReplayBuffer {
   record(game) {
     const pl = game.on.map((p) => ({
       id: p.id, x: p.pos.x, z: p.pos.z, y: p.y, face: p.face, vx: p.vel.x, vz: p.vel.z, hasBall: p.hasBall, hu: p.handsUp, dh: p.dribbleHand, st: p.stumble, state: p.state,
-      action: p.action ? { kind: p.action.kind, t: p.action.t, D: p.action.D, type: p.action.type, released: p.action.released, variant: p.action.variant, dur: p.action.dur } : null,
+      action: p.action ? { kind: p.action.kind, t: p.action.t, D: p.action.D, type: p.action.type, released: p.action.released, releaseT: p.action.releaseT, variant: p.action.variant, dur: p.action.dur } : null,
     }));
     const b = game.ball;
     this.frames.push({ pl, ball: { x: b.pos.x, y: b.pos.y, z: b.pos.z, q: b.quat ? { x: b.quat.x, y: b.quat.y, z: b.quat.z, w: b.quat.w } : null, held: b.state === 'held' }, score: [...game.score], clock: game.clock });

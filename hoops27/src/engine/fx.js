@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { COLORS } from '../tuning.js';
 import { PARTICLE_VS, PARTICLE_FS } from '../shaders/particles.js';
-import { METER_FS } from '../shaders/meter.js';
+import { METER_FS, BAR_FS } from '../shaders/meter.js';
 
 
 export class Particles {
@@ -50,6 +50,14 @@ export class ShotMeterView {
     this.dot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: COLORS.cyan })); this.dot.visible = false; this.group.add(this.dot);
     this.palette = { track: COLORS.cyan, good: COLORS.lime, warn: COLORS.amber, bad: COLORS.danger, ok: COLORS.lime, mid: COLORS.amber };
     this.flashT = 0;
+    // overhead bar (2K style): billboard above the shooter's head
+    this.bar = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.27), new THREE.ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false, uniforms: { fill: { value: 0 }, winC: { value: 0.92 }, winW: { value: 0.1 }, time: { value: 0 }, fillCol: { value: new THREE.Color('#e9f6ff') }, greenCol: { value: new THREE.Color('#2dff4f') }, resCol: { value: new THREE.Color('#ffffff') }, res: { value: 0 }, contest: { value: 0 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: BAR_FS }));
+    this.bar.renderOrder = 20; this.bar.visible = false; scene.add(this.bar); this.hold = 0; this.holdFill = 0; this.holdP = null;
+  }
+  /** Freeze the bar for a moment after release and tint it by grade (perfect = green, early/late = amber, way off = red). */
+  result(player, grade) {
+    const col = { perfect: '#2dff4f', excellent: '#19e8ff', good: '#ffffff', early: '#ffb000', late: '#ffb000', wayoff: '#ff3355' }[grade] ?? '#ffffff';
+    const u = this.bar.material.uniforms; u.resCol.value.set(col); this.hold = 0.75; this.holdP = player; this.holdFill = u.fill.value;
   }
   setPalette(name) { // colour-blind-safe meter palettes
     const P = { default: { ok: COLORS.lime, mid: COLORS.amber, bad: COLORS.danger, green: COLORS.lime }, deuteranopia: { ok: '#2E9BFF', mid: '#FFD21F', bad: '#FF5A1F', green: '#2E9BFF' }, protanopia: { ok: '#36B6FF', mid: '#FFE24A', bad: '#FF8A00', green: '#36B6FF' }, tritanopia: { ok: '#00E5A0', mid: '#FF9EB5', bad: '#FF2B55', green: '#00E5A0' } };
@@ -59,6 +67,16 @@ export class ShotMeterView {
   update(dt, t, p, style, ctx) {
     const m = p?.shotMeter, a = p?.action;
     this.flashT = Math.max(0, this.flashT - dt); this.mat.uniforms.flash.value = this.flashT;
+    const bu = this.bar.material.uniforms; this.hold = Math.max(0, this.hold - dt);
+    if (this.hold > 0 && this.holdP) { // post-release: bar stays frozen with the result colour, then fades
+      const q = this.holdP; this.bar.visible = style === 'overhead'; this.bar.position.set(q.pos.x, q.y + q.height + 0.42, q.pos.z); if (ctx.camera) this.bar.quaternion.copy(ctx.camera.quaternion);
+      bu.fill.value = this.holdFill; bu.res.value = Math.min(1, this.hold * 4); bu.time.value = t; this.bar.scale.setScalar(this.distScale(ctx, q) * (1 + (this.hold > 0.6 ? (this.hold - 0.6) * 1.6 : 0)));
+    } else { this.bar.visible = false; bu.res.value = 0; }
+    if (style === 'overhead' && p && m && a && !a.released) {
+      const fo = Math.min(1.2, m.t / m.D) * 0.92, wf = (m.windowMs / 1000 / m.D) * 0.92; bu.fill.value = fo; bu.winW.value = wf; bu.winC.value = 0.92; bu.time.value = t; bu.res.value = 0; bu.resCol.value.set('#ffffff'); this.hold = 0;
+      this.bar.visible = true; this.bar.scale.setScalar(this.distScale(ctx, p)); this.bar.position.set(p.pos.x, p.y + p.height + 0.42, p.pos.z); if (ctx.camera) this.bar.quaternion.copy(ctx.camera.quaternion);
+      this.mesh.visible = false; this.dot.visible = false; this.group.position.set(p.pos.x, 0, p.pos.z); this.placeContest(p, m); this.contest.visible = true; return;
+    }
     if (!p || !m || !a || a.released || style === 'off') { this.mesh.visible = false; this.dot.visible = false; this.contest.visible = !!(p && m && a && !a.released && style !== 'off' && ctx.showContest); if (this.contest.visible) this.placeContest(p, m); this.group.position.set(p?.pos.x ?? 0, 0, p?.pos.z ?? 0); return; }
     this.group.position.set(p.pos.x, 0, p.pos.z); 
     const f = Math.min(1.2, m.t / m.D) * 0.92; // 100% fill sits at 0.92 of the arc; the green window is centred there
@@ -71,5 +89,7 @@ export class ShotMeterView {
     // minimal dot at the head
     this.dot.visible = style === 'minimal'; if (this.dot.visible) { this.dot.position.set(0, p.y + p.height + 0.35, 0); const inWin = Math.abs(f - 0.92) < wFrac / 2; this.dot.material.color.set(inWin ? this.palette.green : '#ffffff'); this.dot.scale.setScalar(inWin ? 1.8 : 1); }
   }
+  /** keep the bar a readable size on screen regardless of camera distance */
+  distScale(ctx, p) { if (!ctx.camera) return 1; const d = Math.hypot(ctx.camera.position.x - p.pos.x, ctx.camera.position.y - 2, ctx.camera.position.z - p.pos.z); return Math.min(2.6, Math.max(0.9, d / 11)); }
   placeContest(p, m) { const c = m.contest ?? 0; this.contest.material.color.set(c < 0.25 ? this.palette.ok : c < 0.6 ? this.palette.mid : this.palette.bad); this.contest.position.y = 0.025; }
 }

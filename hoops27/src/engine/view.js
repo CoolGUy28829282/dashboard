@@ -54,6 +54,7 @@ export class GameView {
         if (pts === 3) this.R.kick(0.006); this.celebrate.set(player, g.t + 1.6);
       }),
       bus.on('dunk', ({ made }) => { if (made) { this.rig.kick(0.5); this.R.kick(0.014); } }),
+      bus.on('shotGrade', ({ player, grade }) => this.meter.result(player, grade)),
       bus.on('block', () => { this.rig.kick(0.35); this.R.kick(0.01); }),
       bus.on('shotRelease', ({ ev, player }) => { this.rig.shotCut = this.rig.time + 1.8; if (ev.human && (ev.grade === 'perfect' || ev.grade === 'excellent')) { if (ev.grade === 'perfect') this.meter.flash(); fx.burst({ x: player.pos.x, y: 0.1, z: player.pos.z }, ev.grade === 'perfect' ? COLORS.lime : COLORS.cyan, ev.grade === 'perfect' ? 46 : 22, 3.2, 0.8); } }),
       bus.on('buzzer', () => this.R.kick(0.02)),
@@ -116,7 +117,7 @@ export class GameView {
     this.ballShadow.position.set(bp.x, 0.02, bp.z); this.ballShadow.scale.setScalar(Math.max(0.4, 1.2 - bp.y * 0.18)); this.ballShadow.material.opacity = Math.max(0.1, 0.45 - bp.y * 0.07);
     // shot meter + helpers for the controlled player
     const ctrl = activeCtrl[0];
-    if (!R && ctrl) this.meter.update(dt, this.time, ctrl, s.gameplay?.shotMeter ?? 'standard', { showContest: true }); else this.meter.update(dt, this.time, null, 'off', {});
+    if (!R && ctrl) this.meter.update(dt, this.time, ctrl, s.gameplay?.shotMeter ?? 'overhead', { showContest: true, camera: this.camera }); else this.meter.update(dt, this.time, null, 'off', {});
     this.updateHelpers(dt, ctrl, R);
     this.fx.update(dt, this.R.renderer.domElement.clientHeight || innerHeight);
     // camera

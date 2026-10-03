@@ -8,41 +8,51 @@ import { BEAM_VS, BEAM_FS } from '../shaders/beam.js';
 
 const PPM = 56; // court texture pixels per metre
 
-export function courtTexture(accent = '#00F0FF', accent2 = '#FF2BD6', tint = '#0a1a2e', logoText = 'NEON ERA') {
+export function courtTexture(accent = '#00F0FF', accent2 = '#FF2BD6', tint = '#0a1a2e', logoText = 'NEON ERA', paint = '#1d4f9f') {
+  // Regulation hardwood: maple planks with grain, painted keys, 5 cm white lines, team-colour centre logo.
   const W = Math.round(COURT.length * PPM), H = Math.round(COURT.width * PPM);
   const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const X = (x) => (x + HALF_L) * PPM, Z = (z) => (z + HALF_W) * PPM; // world metres -> pixels
-  const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, tint); grd.addColorStop(0.5, '#05060d'); grd.addColorStop(1, tint);
-  g.fillStyle = grd; g.fillRect(0, 0, W, H);
-  // subtle LED tile grid
-  g.strokeStyle = 'rgba(255,255,255,0.045)'; g.lineWidth = 1;
-  for (let x = -HALF_L; x <= HALF_L; x += 0.5) { g.beginPath(); g.moveTo(X(x), 0); g.lineTo(X(x), H); g.stroke(); }
-  for (let z = -HALF_W; z <= HALF_W; z += 0.5) { g.beginPath(); g.moveTo(0, Z(z)); g.lineTo(W, Z(z)); g.stroke(); }
-  // painted areas
-  g.fillStyle = hexA(accent, 0.16);
+  const X = (x) => (x + HALF_L) * PPM, Z = (z) => (z + HALF_W) * PPM; void accent; void accent2; void tint;
+  // planks run along the length of the court, ~7.6 cm wide, each with its own tone and grain
+  const plankH = Math.max(3, Math.round(0.076 * PPM)); let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let y = 0, k = 0; y < H; y += plankH, k++) {
+    const tone = 0.93 + rnd() * 0.14; g.fillStyle = `rgb(${Math.round(214 * tone)},${Math.round(165 * tone)},${Math.round(104 * tone)})`; g.fillRect(0, y, W, plankH);
+    // butt joints: planks are ~1.2-2.4 m boards laid end to end
+    for (let x = rnd() * 90; x < W; x += 70 + rnd() * 80) { g.fillStyle = 'rgba(70,40,15,.35)'; g.fillRect(x, y, 1, plankH); }
+    for (let n = 0; n < 5; n++) { g.strokeStyle = `rgba(120,70,25,${0.05 + rnd() * 0.08})`; g.lineWidth = 0.7; const yy = y + rnd() * plankH; g.beginPath(); g.moveTo(0, yy); for (let x = 0; x <= W; x += 60) g.lineTo(x, yy + (rnd() - 0.5) * 1.2); g.stroke(); }
+    g.fillStyle = 'rgba(60,32,10,.28)'; g.fillRect(0, y, W, 1);
+  }
+  // gloss gradient so the lacquer catches the arena lights
+  const sheen = g.createLinearGradient(0, 0, W, 0); sheen.addColorStop(0, 'rgba(255,240,200,0)'); sheen.addColorStop(0.5, 'rgba(255,240,200,.10)'); sheen.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = sheen; g.fillRect(0, 0, W, H);
+  // painted keys (stain over the grain so the wood still shows through), plus restricted-area tint
+  g.save(); g.globalAlpha = 0.86; g.fillStyle = paint;
   for (const s of [-1, 1]) { const x0 = X(s * HALF_L), x1 = X(s * (HALF_L - COURT.backboardOffset - COURT.ftLine)); g.fillRect(Math.min(x0, x1), Z(-COURT.paintWidth / 2), Math.abs(x1 - x0), COURT.paintWidth * PPM); }
-  const glowLine = (col, w, fn) => { g.save(); g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 14; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); fn(); g.stroke(); g.restore(); g.save(); g.strokeStyle = '#fff'; g.globalAlpha = 0.55; g.lineWidth = Math.max(1.5, w * 0.3); g.beginPath(); fn(); g.stroke(); g.restore(); };
-  const lw = 0.1 * PPM;
-  glowLine(accent, lw, () => { g.rect(X(-HALF_L) + lw / 2, Z(-HALF_W) + lw / 2, COURT.length * PPM - lw, COURT.width * PPM - lw); });
-  glowLine(accent, lw * 0.8, () => { g.moveTo(X(0), Z(-HALF_W)); g.lineTo(X(0), Z(HALF_W)); });
-  glowLine(accent, lw * 0.8, () => { g.arc(X(0), Z(0), 1.83 * PPM, 0, Math.PI * 2); });
+  g.restore();
+  const lw = 0.05 * PPM, white = '#f6f4ee';
+  const line = (fn, w = lw, dash) => { g.save(); g.strokeStyle = white; g.lineWidth = w; g.lineCap = 'butt'; g.lineJoin = 'miter'; if (dash) g.setLineDash(dash); g.beginPath(); fn(); g.stroke(); g.restore(); };
+  line(() => g.rect(X(-HALF_L) + lw / 2, Z(-HALF_W) + lw / 2, COURT.length * PPM - lw, COURT.width * PPM - lw));
+  line(() => { g.moveTo(X(0), Z(-HALF_W)); g.lineTo(X(0), Z(HALF_W)); });
+  // centre circle: team-colour disc, white ring, inner ring
+  g.save(); g.globalAlpha = 0.9; g.fillStyle = paint; g.beginPath(); g.arc(X(0), Z(0), 1.83 * PPM, 0, Math.PI * 2); g.fill(); g.restore();
+  line(() => g.arc(X(0), Z(0), 1.83 * PPM, 0, Math.PI * 2)); line(() => g.arc(X(0), Z(0), 0.6 * PPM, 0, Math.PI * 2), lw * 0.7);
   for (const s of [-1, 1]) {
     const bx = s * HALF_L, rx = s * RIM_X, ftx = s * (HALF_L - COURT.backboardOffset - COURT.ftLine);
-    glowLine(accent, lw * 0.8, () => { g.rect(Math.min(X(bx), X(ftx)), Z(-COURT.paintWidth / 2), Math.abs(X(ftx) - X(bx)), COURT.paintWidth * PPM); });
-    glowLine(accent, lw * 0.8, () => { g.arc(X(ftx), Z(0), 1.83 * PPM, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? Math.PI / 2 : -Math.PI / 2, s < 0 ? true : false); });
-    glowLine(accent2, lw, () => { // three-point line: corners straight, arc between
-      const R = COURT.threeArc, cz = COURT.threeCorner, a = Math.asin(cz / R); const cornerEnd = Math.cos(a) * R;
-      g.moveTo(X(bx), Z(-cz)); g.lineTo(X(rx - s * cornerEnd), Z(-cz));
-      const a0 = s > 0 ? Math.PI + a : -a, a1 = s > 0 ? Math.PI - a : a;
-      g.arc(X(rx), Z(0), R * PPM, s > 0 ? Math.PI - a : a, s > 0 ? Math.PI + a : -a, s > 0 ? false : true); void a0; void a1;
-      g.moveTo(X(rx - s * cornerEnd), Z(cz)); g.lineTo(X(bx), Z(cz));
-    });
-    glowLine(accent, lw * 0.6, () => { g.arc(X(rx), Z(0), 1.25 * PPM, s > 0 ? Math.PI / 2 : -Math.PI / 2, s > 0 ? Math.PI * 1.5 : Math.PI / 2 + Math.PI * 0, false); });
+    line(() => { g.rect(Math.min(X(bx), X(ftx)), Z(-COURT.paintWidth / 2), Math.abs(X(ftx) - X(bx)), COURT.paintWidth * PPM); });
+    // free-throw circle: solid half toward half-court, dashed half inside the key
+    line(() => g.arc(X(ftx), Z(0), 1.83 * PPM, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? Math.PI / 2 : -Math.PI / 2, s < 0));
+    line(() => g.arc(X(ftx), Z(0), 1.83 * PPM, s > 0 ? Math.PI / 2 : -Math.PI / 2, s > 0 ? Math.PI * 1.5 : Math.PI / 2, s < 0), lw * 0.9, [0.45 * PPM, 0.4 * PPM]);
+    // three-point line: straight corners + arc
+    line(() => { const R = COURT.threeArc, cz = COURT.threeCorner, a = Math.asin(cz / R); const cornerEnd = Math.cos(a) * R;
+      g.moveTo(X(bx), Z(-cz)); g.lineTo(X(rx - s * cornerEnd), Z(-cz)); g.arc(X(rx), Z(0), R * PPM, s > 0 ? Math.PI - a : a, s > 0 ? Math.PI + a : -a, s < 0); g.moveTo(X(rx - s * cornerEnd), Z(cz)); g.lineTo(X(bx), Z(cz)); });
+    // restricted-area arc under the basket + lane blocks
+    line(() => g.arc(X(rx), Z(0), 1.25 * PPM, s > 0 ? Math.PI / 2 : -Math.PI / 2, s > 0 ? Math.PI * 1.5 : Math.PI / 2, false), lw * 0.9);
+    for (const zz of [-1, 1]) for (const d of [1.8, 2.6, 3.4, 4.2]) line(() => { const xx = X(s * (HALF_L - d - 0.0)); g.moveTo(xx, Z(zz * COURT.paintWidth / 2)); g.lineTo(xx, Z(zz * (COURT.paintWidth / 2 + 0.2))); }, lw * 0.8);
   }
-  // center logo
-  g.save(); g.translate(X(0), Z(0)); g.fillStyle = hexA(accent2, 0.9); g.shadowColor = accent2; g.shadowBlur = 24; g.font = `800 ${0.95 * PPM}px Orbitron, Rajdhani, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(logoText, 0, -0.1 * PPM); g.font = `600 ${0.38 * PPM}px Orbitron, sans-serif`; g.fillStyle = hexA(accent, 0.9); g.shadowColor = accent; g.fillText('HOOPS 27', 0, 0.75 * PPM); g.restore();
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true; return tex;
+  // centre-court logo in white, mid-line crossing underneath
+  g.save(); g.translate(X(0), Z(0)); g.fillStyle = white; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `800 ${0.5 * PPM}px Orbitron, Rajdhani, sans-serif`; g.fillText(logoText, 0, -0.18 * PPM); g.font = `600 ${0.28 * PPM}px Orbitron, sans-serif`; g.fillText('HOOPS 27', 0, 0.22 * PPM); g.restore();
+  // baseline wordmarks in the painted border
+  for (const s of [-1, 1]) { g.save(); g.translate(X(s * (HALF_L - 2.6)), Z(0)); g.rotate(s > 0 ? Math.PI / 2 : -Math.PI / 2); g.fillStyle = 'rgba(246,244,238,.85)'; g.font = `800 ${0.42 * PPM}px Orbitron, sans-serif`; g.textAlign = 'center'; g.fillText('NEON ERA', 0, 0); g.restore(); }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 16; tex.needsUpdate = true; return tex;
 }
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 
@@ -64,12 +74,12 @@ export class Arena {
     const rimL = new THREE.PointLight(this.accent, 20, 40, 1.6); rimL.position.set(0, 9, -9); const rimR = new THREE.PointLight(this.accent2, 18, 40, 1.6); rimR.position.set(0, 9, 9); this.group.add(rimL, rimR); this.fillLights = [rimL, rimR];
   }
   buildCourt(reflection) {
-    const tex = courtTexture(this.arena.accent, this.arena.accent2, this.arena.floorTint);
+    const tex = courtTexture(this.arena.accent, this.arena.accent2, this.arena.floorTint, 'NEON ERA', this.arena.paint);
     const geo = new THREE.PlaneGeometry(COURT.length, COURT.width);
-    const mat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.28, metalness: 0.15, transparent: reflection > 0, opacity: reflection > 0 ? 0.86 : 1 });
+    const mat = new THREE.MeshPhysicalMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.1, roughness: 0.42, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18, transparent: reflection > 0, opacity: reflection > 0 ? 0.93 : 1 });
     this.court = new THREE.Mesh(geo, mat); this.court.rotation.x = -Math.PI / 2; this.court.position.y = 0.005; this.court.receiveShadow = true; this.group.add(this.court);
     // surround apron
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(COURT.length + 18, COURT.width + 18), new THREE.MeshStandardMaterial({ color: 0x080b16, roughness: 0.35, metalness: 0.6 }));
+    const apron = new THREE.Mesh(new THREE.PlaneGeometry(COURT.length + 18, COURT.width + 18), new THREE.MeshStandardMaterial({ color: 0x4a2c14, roughness: 0.5, metalness: 0 }));
     apron.rotation.x = -Math.PI / 2; apron.position.y = -0.03; apron.receiveShadow = true; this.group.add(apron);
     if (reflection > 0) {
       const size = Math.round(1024 * reflection);
@@ -77,7 +87,7 @@ export class Arena {
       this.mirror.rotation.x = -Math.PI / 2; this.mirror.position.y = -0.01; this.group.add(this.mirror);
     }
     // LED sideline strips
-    const ledMat = new THREE.MeshBasicMaterial({ color: this.accent });
+    const ledMat = new THREE.MeshBasicMaterial({ color: this.accent.clone().multiplyScalar(0.45) });
     this.led = [];
     for (const z of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(COURT.length + 1, 0.12, 0.12), ledMat.clone()); m.position.set(0, 0.06, z * (HALF_W + 1.1)); this.group.add(m); this.led.push(m); }
     for (const x of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, COURT.width + 2.4), ledMat.clone()); m.position.set(x * (HALF_L + 1.1), 0.06, 0); this.group.add(m); this.led.push(m); }
@@ -197,7 +207,7 @@ export class Arena {
     this.scoreboard.rotation.y += dt * 0.25; this.roofRing.rotation.z += dt * 0.2;
     this.rimLights.forEach((h, i) => { this.rimFlash[i] = Math.max(0, this.rimFlash[i] - dt * 1.4); const f = this.rimFlash[i]; h.material.color.copy(f > 0.02 ? this.rimColor[i] : this.accent); h.material.opacity = 0.45 + 0.55 * f; h.scale.setScalar(1 + f * 0.25); });
     this.nets.forEach((n, i) => { const k = this.netKick?.[i] ?? 0; if (k > 0) { this.netKick[i] = Math.max(0, k - dt * 2.2); n.scale.set(1 - 0.12 * Math.sin(k * 6) * k, 1 + 0.35 * Math.sin(k * 5) * k, 1 - 0.12 * Math.sin(k * 6) * k); } else n.scale.set(1, 1, 1); });
-    const pulse = 0.5 + 0.5 * Math.sin(this.time * 2); this.led.forEach((l) => l.material.color.copy(this.accent).lerp(this.accent2, pulse * 0.6));
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 2); this.led.forEach((l) => l.material.color.copy(this.accent).lerp(this.accent2, pulse * 0.6).multiplyScalar(0.5));
     void ball;
   }
   dispose() { this.scene.remove(this.group); }

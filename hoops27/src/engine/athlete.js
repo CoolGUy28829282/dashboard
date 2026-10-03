@@ -131,12 +131,19 @@ export class Athlete {
     if (a) {
       const t = a.t ?? 0;
       if (a.kind === 'shoot' || a.kind === 'ft' || a.kind === 'layup' || a.kind === 'dunk') {
-        const u = Math.min(1, t / (a.D || 0.6)); ik = a.kind === 'dunk' ? 'dunk' : 'shoot';
-        const load = Math.sin(Math.min(1, u * 1.6) * Math.PI) * (1 - u * 0.4);
-        T.lKn = T.rKn = 0.2 + (a.kind === 'ft' ? 0.8 : 0.9) * (1 - u) * (u < 0.35 ? 1 : 0.2); T.lHip = T.rHip = 0.25 + 0.4 * (1 - u);
-        T.crouch = 0.0; T.lean = 0.06 - 0.12 * u + (a.variant === 'fadeaway' ? -0.35 : 0); void load;
-        if (a.kind === 'layup' || a.kind === 'dunk') { T.rHip = -0.9 * Math.min(1, u * 2); T.rKn = 1.5 * Math.min(1, u * 2); T.lHip = 0.5; T.lKn = 0.1; }
-        if (a.released) { ik = 'follow'; }
+        const D = a.D || 0.6, u = Math.min(1.6, t / D); ik = a.kind === 'dunk' ? 'dunk' : 'shoot';
+        const ft = a.kind === 'ft', rimFinish = a.kind === 'layup' || a.kind === 'dunk';
+        // phases: gather/load (0-0.35) -> rise & extend (0.35-1) -> release & follow-through -> soft landing
+        const load = u < 0.35 ? Math.sin((u / 0.35) * Math.PI * 0.5) : 1 - Math.min(1, (u - 0.35) / 0.55);
+        T.lKn = T.rKn = 0.12 + (ft ? 0.55 : 0.85) * Math.max(0, load); T.lHip = T.rHip = 0.12 + 0.5 * Math.max(0, load);
+        T.crouch = (ft ? 0.07 : 0.1) * s * Math.max(0, load); T.lean = 0.1 * Math.max(0, load) - 0.05 * Math.min(1, u) + (a.variant === 'fadeaway' ? -0.35 : 0);
+        T.lShP = -0.5; T.lShR = 0.5; // guide hand rests beside the ball
+        if (rimFinish) { T.rHip = -0.9 * Math.min(1, u * 2); T.rKn = 1.5 * Math.min(1, u * 2); T.lHip = 0.5; T.lKn = 0.1; }
+        if (a.released) {
+          ik = 'follow'; const since = Math.max(0, t - (a.releaseT ?? a.D)); // held follow-through, then the knees soften for the landing
+          if (!rimFinish) { T.lKn = T.rKn = 0.25 + 0.5 * Math.min(1, Math.max(0, since - 0.25) * 2.2); T.lHip = T.rHip = 0.2 + 0.3 * Math.min(1, Math.max(0, since - 0.25) * 2.2); T.crouch = 0.06 * s * Math.min(1, Math.max(0, since - 0.3) * 3); }
+          T.lean = -0.04;
+        }
       } else if (a.kind === 'pass') { ik = 'pass'; T.lean += 0.06; }
       else if (a.kind === 'pump') { ik = 'shoot'; }
       else if (a.kind === 'block' || a.kind === 'oopjump') { T.lShP = T.rShP = -3.0; T.lShR = T.rShR = 0.2; T.lEl = T.rEl = 0.05; T.lKn = T.rKn = 0.3; T.lHip = T.rHip = 0.2; T.crouch = 0; }
@@ -164,14 +171,18 @@ export class Athlete {
     // ground-clamp foot IK: keep the lowest foot on the floor unless airborne
     if (rt.y < 0.05) { this.rigGroup.updateMatrixWorld(true); const lf = V(), rf = V(); j.lFoot.getWorldPosition(lf); j.rFoot.getWorldPosition(rf); const low = Math.min(lf.y, rf.y) - 0.045 * s; j.hips.position.y -= low * 0.9; }
     // ---- hand IK onto the ball (target converted into the spine's space)
+    if (ik === 'follow') { // ball has left the hands: keep the shooting arm extended up and forward with a wrist flick
+      const fx = Math.cos(rt.face), fz = Math.sin(rt.face); const since = Math.max(0, (a?.t ?? 0) - (a?.releaseT ?? a?.D ?? 0));
+      ball = { x: rt.pos.x + fx * (0.3 + 0.12 * Math.min(1, since * 4)), y: rt.y + rt.height * (1.2 + 0.1 * Math.min(1, since * 4)), z: rt.pos.z + fz * (0.3 + 0.12 * Math.min(1, since * 4)) };
+    }
     if (ik && ball) {
       this.root.updateMatrixWorld(true);
       const target = j.spine.worldToLocal(V(ball.x, ball.y, ball.z));
       const poleR = V(-0.3, -0.2, 1), poleL = V(-0.3, -0.2, -1);
       if (ik === 'dribble') { const side = rt.dribbleHand > 0 ? 'r' : 'l'; this.ikArm(side, target.clone().add(V(0, 0, side === 'r' ? 0.02 : -0.02)), side === 'r' ? poleR : poleL); }
       else { // two-hand set, shot, pass, dunk
-        this.ikArm('r', target.clone().add(V(0, 0, 0.09 * s)), poleR);
-        this.ikArm('l', target.clone().add(V(ik === 'follow' ? 0.05 : 0, ik === 'follow' ? 0.05 : 0, -0.09 * s)), poleL);
+        this.ikArm('r', target.clone().add(V(0, 0, (ik === 'follow' ? 0.13 : 0.09) * s)), poleR);
+        this.ikArm('l', target.clone().add(V(ik === 'follow' ? -0.05 : 0, ik === 'follow' ? -0.4 : 0, (ik === 'follow' ? -0.3 : -0.09) * s)), poleL); // guide hand drops after release
       }
     }
     this.updateRing(rt, ctx);

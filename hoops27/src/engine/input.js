@@ -3,8 +3,8 @@
 import { clearEdges } from '../gameplay/game.js';
 
 export const DEFAULT_KEYS = {
-  up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'KeyK', pass: 'KeyJ', lob: 'KeyU', pump: 'KeyZ', hesitate: 'KeyC',
-  stepback: 'KeyL', switch: 'KeyQ', steal: 'KeyE', post: 'KeyV', callBall: 'KeyF', pick: 'KeyT', pause: 'Escape', camera: 'Tab', replaySkip: 'Space',
+  up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'KeyE', pass: 'KeyF', lob: 'KeyU', pump: 'KeyZ', hesitate: 'KeyC',
+  stepback: 'KeyL', switch: 'KeyQ', steal: 'KeyR', post: 'KeyV', callBall: 'KeyG', pick: 'KeyT', pause: 'Escape', camera: 'Tab', replaySkip: 'Space',
   rUp: 'ArrowUp', rDown: 'ArrowDown', rLeft: 'ArrowLeft', rRight: 'ArrowRight', play1: 'Digit1', play2: 'Digit2', play3: 'Digit3', play4: 'Digit4', play5: 'Digit5',
 };
 export const P2_KEYS = { up: 'KeyI', down: 'KeyK', left: 'KeyJ', right: 'KeyL', sprint: 'ShiftRight', shoot: 'Period', pass: 'Comma', lob: 'KeyM', pump: 'KeyN', hesitate: 'KeyH', stepback: 'KeyB', switch: 'KeyO', steal: 'Slash', post: 'Semicolon', callBall: 'KeyP', pick: 'Quote', rUp: 'Numpad8', rDown: 'Numpad5', rLeft: 'Numpad4', rRight: 'Numpad6' };

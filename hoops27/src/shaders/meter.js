@@ -11,3 +11,20 @@ export const METER_FS = `uniform float fill; uniform float winC; uniform float w
     float tick = smoothstep(0.012, 0.0, abs(t - fill)) * ring; col += vec3(1.0) * tick; a = max(a, tick);
     col += greenCol * flash; a = max(a, ring * flash * inArc);
     gl_FragColor = vec4(col, a); }`;
+
+// 2K-style overhead bar: dark glass frame, fill sweeping left to right, green sweet spot, bright release tick.
+export const BAR_FS = `uniform float fill; uniform float winC; uniform float winW; uniform float time; uniform vec3 fillCol; uniform vec3 greenCol; uniform vec3 resCol; uniform float res; uniform float contest; varying vec2 vUv;
+  void main(){
+    vec2 p = vUv; float edge = min(min(p.x, 1.0 - p.x) * 5.2, min(p.y, 1.0 - p.y)) ;
+    float frame = 1.0 - smoothstep(0.0, 0.14, edge);
+    vec3 col = vec3(0.03, 0.04, 0.07); float a = 0.78;
+    float inner = smoothstep(0.14, 0.2, edge);
+    float g = smoothstep(winC - winW * 0.5 - 0.004, winC - winW * 0.5, p.x) * (1.0 - smoothstep(winC + winW * 0.5, winC + winW * 0.5 + 0.004, p.x));
+    col = mix(col, greenCol * (0.55 + 0.25 * sin(time * 10.0)), g * inner * 0.85);
+    float f = step(p.x, fill) * inner; vec3 fc = mix(fillCol, vec3(1.0), smoothstep(0.0, 1.0, p.x) * 0.25);
+    float inWin = g * step(p.x, fill); col = mix(col, fc, f * (1.0 - inWin * 0.0)); col = mix(col, greenCol * 1.35, inWin * f);
+    float tick = smoothstep(0.012, 0.0, abs(p.x - fill)) * inner; col += vec3(1.0) * tick;
+    col = mix(col, resCol, res * 0.55 * inner);
+    col += frame * mix(vec3(0.8), resCol, res);
+    float cs = step(1.0 - contest * 1.0, p.x) * 0.0; col += cs;
+    gl_FragColor = vec4(col, max(a, frame)); }`;

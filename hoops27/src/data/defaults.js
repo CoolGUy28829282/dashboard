@@ -2,7 +2,7 @@ import { COLORS } from '../tuning.js';
 export const DEFAULT_SETTINGS = {
   audio: { master: 0.8, music: 0.5, sfx: 0.9, crowd: 0.8, commentary: 0.7, tts: false },
   controls: { keys: {}, deadzone: 0.15, aimAssist: 0.5, shotStickSens: 0.6, vibration: true },
-  gameplay: { shotMeter: 'standard', shotInput: 'button', camera: 'broadcast', sprintToggle: false, playCallUI: true, foulSensitivity: 1.0, replays: true, travel: 'arcade', threeSecond: true },
+  gameplay: { shotMeter: 'overhead', shotInput: 'button', camera: 'broadcast', sprintToggle: false, playCallUI: true, foulSensitivity: 1.0, replays: true, travel: 'arcade', threeSecond: true },
   video: { preset: 'auto', resolutionScale: 1, shadows: true, bloom: true, ssao: false, ca: true, fxaa: true, motionBlur: false, fpsCap: 0, showFps: false, benchmarked: false },
   access: { palette: 'default', uiScale: 1, reducedMotion: false, screenShake: true },
 };

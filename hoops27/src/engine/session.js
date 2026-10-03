@@ -28,7 +28,7 @@ export class GameSession {
     this.game = new Game({ teams, settings, bus: this.bus, physics: app.phys, humans: cfg.humans.map((hh) => ({ ...hh })), seed: (Math.random() * 1e9) | 0 });
     if (cfg.lineups) cfg.lineups.forEach((l, ti) => { if (l) this.applyLineup(ti, l); });
     if (cfg.strategy) cfg.strategy.forEach((st, ti) => { if (st) Object.assign(this.game.teams[ti].strategy, st); });
-    this.viewSettings = { ...S, gameplay: { ...S.gameplay, shotMeter: cfg.ranked ? 'standard' : S.gameplay.shotMeter } };
+    this.viewSettings = { ...S, gameplay: { ...S.gameplay, shotMeter: cfg.ranked ? 'overhead' : S.gameplay.shotMeter } };
     app.rend.cfg.reducedMotion = S.access.reducedMotion;
     this.view = new GameView(app.rend, this.game, { arena, settings: this.viewSettings, bus: this.bus });
     this.view.setCameraMode(S.gameplay.camera);
@@ -172,7 +172,7 @@ export class GameSession {
     const next = () => { if (i >= list.length || this.disposed) { tag.remove(); this.view.onReplayEnd = null; return onDone?.(); } const hl = list[i++]; tag.textContent = `Top plays ${i}/${list.length} — ${hl.label}`; this.view.replay = null; this.view.g.paused = true; const ok = this.view.startReplayClip(hl.clip, 0.6); if (!ok) next(); };
     this.view.onReplayEnd = () => setTimeout(next, 200); next();
   }
-  applySettings() { const S = this.app.settings; this.viewSettings.gameplay.shotMeter = this.cfg.ranked ? 'standard' : S.gameplay.shotMeter; this.view.meter.setPalette(S.access.palette); this.hud.buildPlayUi(); this.app.applyVideo(); this.app.applyAccess(); }
+  applySettings() { const S = this.app.settings; this.viewSettings.gameplay.shotMeter = this.cfg.ranked ? 'overhead' : S.gameplay.shotMeter; this.view.meter.setPalette(S.access.palette); this.hud.buildPlayUi(); this.app.applyVideo(); this.app.applyAccess(); }
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.raf); this.offs?.forEach((f) => f()); document.removeEventListener('visibilitychange', this.onVis); window.removeEventListener('mousemove', this.onMove); this.hud.dispose(); this.commentary.dispose(); this.view.dispose(); this.app.input.detach(); this.app.audio.stopMusic(); this.pauseMenu?.close?.();
     if (this.skipHandler) this.app.input.menuHandlers.delete(this.skipHandler); this.app.phys.setActive(false);

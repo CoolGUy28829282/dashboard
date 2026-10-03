@@ -159,7 +159,7 @@ const aiLevelFor = (g, p) => (g.humans.some((h) => h.ctrl === p) ? { contest: 0.
 
 /* ------------------------------------------------------------------ release / roll / outcome */
 export function releaseShot(g, p) {
-  const a = p.action; a.released = true;
+  const a = p.action; a.released = true; a.releaseT = a.t;
   const side = a.side, rim = rimOf(side);
   const { level: contest, defender } = shooterContest(g, p, a);
   const windowMs = shotWindow(g, p, a, contest);

@@ -25,10 +25,10 @@ Fonts (Orbitron, Inter) load from Google Fonts and fall back to system fonts off
 |---|---|---|
 | Move | WASD | Left stick |
 | Sprint (drains stamina) / hands up on D | Shift | RT / R2 |
-| Shoot (offence) / block (defence) | **K** — hold, release on the green window | **X / □** |
+| Shoot (offence) / block (defence) | **E** — hold, release on the green window | **X / □** |
 | Shot-stick mode (Settings → Gameplay) | Hold **Arrow Up** or mouse button | Flick right stick up |
 | Dunk attempt | Shoot while sprinting near the rim | Shoot + RT |
-| Pass (auto type; Sprint+Pass = no-look) | J | A / ✕ |
+| Pass (auto type; Sprint+Pass = no-look) | F | A / ✕ |
 | Lob / alley-oop / block | U | Y / △ (tap) |
 | Call a screen | hold T | hold Y / △ (0.35 s) |
 | Pump fake | Z | RB / R1 |
@@ -38,8 +38,8 @@ Fonts (Orbitron, Inter) load from Google Fonts and fall back to system fonts off
 | Behind-the-back | Arrow diagonals | Right-stick diagonal |
 | Spin move | Arrow circle | Right-stick circle |
 | Post-up (back-down) | hold V | hold LT |
-| Switch defender / call for ball | Q / F | LB / L1 |
-| Steal (swipe) | E | X / □ on defence |
+| Switch defender / call for ball | Q / G | LB / L1 |
+| Steal (swipe) | R | X / □ on defence |
 | Play calls 1–5 | 1–5 | D-pad (plays 1–4) |
 | Camera cycle | Tab | View / Share |
 | Pause | Esc | Menu / Options |
