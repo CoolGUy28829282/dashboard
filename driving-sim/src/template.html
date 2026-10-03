@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Neon Drive 3D</title>
+<style>
+  :root{--c:#6fe6ff;--m:#ff4fa8}
+  html,body{margin:0;height:100%;background:#0a0614;overflow:hidden;touch-action:none;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff;user-select:none}
+  canvas{display:block;width:100vw;height:100vh}
+  .hud{position:fixed;pointer-events:none;opacity:0;transition:opacity .5s}
+  body.playing .hud{opacity:1}
+  #tl{top:20px;left:24px}
+  #tl small,#speedbox small{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--c);opacity:.85}
+  #tl b{font:600 30px/1.1 ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;text-shadow:0 0 12px rgba(111,230,255,.5)}
+  #tr{top:20px;right:24px;text-align:right}
+  #tr small{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--m)}
+  #tr b{font:600 24px ui-monospace,Menlo,Consolas,monospace}
+  #speedbox{right:28px;bottom:26px;text-align:right}
+  #speed{font:300 92px/0.9 ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(111,230,255,.55)}
+  #speedbox .row{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:6px}
+  #gear{font:600 28px ui-monospace,monospace;color:var(--c);border:2px solid var(--c);border-radius:6px;padding:0 10px}
+  #rpm{display:flex;gap:3px;margin:10px 0 8px;justify-content:flex-end}
+  #rpm i{width:7px;height:16px;background:rgba(255,255,255,.14);transform:skewX(-18deg)}
+  #rpm i.on{background:var(--c);box-shadow:0 0 8px var(--c)} #rpm i.hot.on{background:var(--m);box-shadow:0 0 8px var(--m)}
+  #nitrobar{width:260px;height:7px;background:rgba(255,255,255,.14);margin-left:auto;transform:skewX(-18deg);overflow:hidden}
+  #nitro{height:100%;width:30%;background:linear-gradient(90deg,var(--c),var(--m))}
+  #toasts{position:fixed;left:50%;top:22%;transform:translateX(-50%);text-align:center;pointer-events:none}
+  .toast{font:700 26px/1.4 system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;text-shadow:0 0 16px currentColor;animation:t 1.3s ease-out forwards;color:var(--c)}
+  .toast.bad{color:#ff5a6e}.toast.gold{color:#ffd45a}.toast.go{font-size:46px}
+  @keyframes t{0%{opacity:0;transform:scale(.7)}12%{opacity:1;transform:scale(1.08)}80%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;mix-blend-mode:difference}#flash.on{opacity:1}
+  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    background:radial-gradient(ellipse at 50% 60%,rgba(10,6,20,.15),rgba(5,2,12,.7));transition:opacity .6s}
+  #title.hide{opacity:0;pointer-events:none}
+  #title h1{margin:0;font:800 clamp(44px,9vw,120px)/1 system-ui,sans-serif;letter-spacing:.06em;font-style:italic;
+    background:linear-gradient(180deg,#fff 10%,#ffb0dc 55%,#6fe6ff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(255,79,168,.55))}
+  #title p{margin:6px 0 0;letter-spacing:.5em;color:var(--c);font-size:clamp(12px,1.6vw,20px)}
+  #title .go{margin-top:6vh;font:600 20px ui-monospace,monospace;letter-spacing:.2em;animation:b 1.2s ease-in-out infinite}
+  @keyframes b{50%{opacity:.35}}
+  #title .keys{margin-top:3vh;font:13px/1.9 ui-monospace,monospace;color:#cfc8ea;opacity:.85}
+  #best{margin-top:10px;font:13px ui-monospace,monospace;color:var(--m)}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0614;letter-spacing:.4em;color:var(--c);font:14px ui-monospace,monospace;transition:opacity .4s}
+  body.ready #load{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="hud" id="tl"><small>Score</small><b id="score">000000</b></div>
+<div class="hud" id="tr"><small>Time</small><b id="time">00:00</b></div>
+<div class="hud" id="speedbox">
+  <div id="rpm"></div>
+  <div class="row"><span id="gear">N</span><span id="speed">0</span></div>
+  <small style="margin-top:2px">km/h</small>
+  <small style="margin:10px 0 4px">Nitro</small><div id="nitrobar"><div id="nitro"></div></div>
+</div>
+<div id="toasts"></div>
+<div id="flash"></div>
+<div id="title">
+  <h1>NEON DRIVE</h1><p>ネオンドライブ · 夜の街</p>
+  <div class="go">PRESS ENTER OR TAP TO START</div>
+  <div class="keys">W / ↑ throttle · S / ↓ brake · A D / ← → steer · SPACE drift (charges nitro) · SHIFT boost<br>C camera · R rain · M mute — close calls and drifting fill the nitro bar</div>
+  <div id="best"></div>
+</div>
+<div id="load">LOADING CITY…</div>
+__INLINE__
+</body>
+</html>

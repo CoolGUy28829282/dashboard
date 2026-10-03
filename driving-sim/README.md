@@ -4,5 +4,5 @@ Night-city driving simulator (Three.js, fully procedural, no assets). Open `inde
 
 Keys: W/↑ throttle · S/↓ brake · A D/←→ steer · Space drift · Shift boost · C camera · R rain · M mute · Enter start.
 
-`src/main.js` is the source; `game.js` is the bundle (`npx esbuild src/main.js --bundle --minify --format=iife --outfile=game.js`, with `three` installed).
+`index.html` is fully self-contained (game inlined). Source: `src/main.js` + `src/template.html`; rebuild with esbuild -> `game.js`, then `./build.sh` (needs `three` + `esbuild` installed).
 `classic-2d.html` is the earlier 2D version.
