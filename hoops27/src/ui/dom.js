@@ -15,7 +15,7 @@ export const clear = (el) => { while (el.firstChild) el.firstChild.remove(); ret
 export const fmtClock = (c) => (c < 60 ? `${Math.floor(c)}.${Math.floor((c % 1) * 10)}` : `${Math.floor(c / 60)}:${String(Math.floor(c % 60)).padStart(2, '0')}`);
 export const periodName = (q) => (q > 4 ? `OT${q - 4 > 1 ? q - 4 : ''}` : `Q${q}`);
 
-const FOCUSABLE = 'button:not(:disabled), .focusable, input[type=range], select, .card, .pcard, .tab, .tile:not(.locked)';
+const FOCUSABLE = 'button:not(:disabled), .focusable, .tc, .mm-item, input[type=range], select, .card, .pcard, .tab, .tile:not(.locked)';
 export class Nav {
   constructor(input, audio) { this.audio = audio; this.root = null; this.cur = null; this.enabled = true; input.menuHandlers.add((kind, v, e) => this.handle(kind, v, e)); }
   setRoot(el) { this.root = el; this.cur = null; queueMicrotask(() => this.focusFirst()); }

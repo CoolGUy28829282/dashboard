@@ -31,46 +31,43 @@ export class Screens {
   }
   profileCard() {
     const p = this.app.profile, rk = R.rankOf(p);
-    return h('div', { class: 'profile-card panel cyan' }, h('div', { class: 'avatar' }, p.name[0].toUpperCase()), h('div', {}, h('div', { class: 'display', style: { fontSize: '14px' } }, p.name), h('div', { class: 'row', style: { gap: '8px', marginTop: '4px' } }, h('span', { class: 'muted', style: { fontSize: '11px' } }, `LVL ${p.level}`), h('span', { class: `rank-badge ${rankClass(p)}` }, R.placementDone(p) ? R.rankText(p) : rk.tier === 'Unranked' ? `Placement ${p.games}/${RANKED.placementGames}` : rk.tier)),
+    return h('div', { class: 'profile-card panel' }, h('div', { class: 'avatar' }, p.name[0].toUpperCase()), h('div', {}, h('div', { class: 'display', style: { fontSize: '14px' } }, p.name), h('div', { class: 'row', style: { gap: '8px', marginTop: '4px' } }, h('span', { class: 'muted', style: { fontSize: '11px' } }, `LVL ${p.level}`), h('span', { class: `rank-badge ${rankClass(p)}` }, R.placementDone(p) ? R.rankText(p) : rk.tier === 'Unranked' ? `Placement ${p.games}/${RANKED.placementGames}` : rk.tier)),
       h('div', { class: 'muted', style: { fontSize: '11px', marginTop: '4px' } }, `Win rate ${R.winPct(p)}% · ${p.wins}W–${p.losses}L`)));
   }
   /* -------------------------------------------------------------- main menu: 3D rotating holographic carousel */
   main() {
-    const app = this.app; const tiles = [
-      { id: 'play', name: 'Play now', glyph: '🏀', desc: 'Exhibition: CPU, local versus, or spectate.', go: () => this.modeSelect() },
-      { id: 'ranked', name: 'Ranked', glyph: '⚡', desc: 'Placements, MMR, tiers and a 30-day season.', go: () => this.rankedHub() },
-      { id: 'settings', name: 'Settings', glyph: '⚙', desc: 'Audio, controls, video, accessibility.', go: () => this.settingsScreen() },
-      { id: 'quit', name: 'Quit', glyph: '⏻', desc: 'Leave the arena.', go: () => this.quit() },
-      { id: 'career', name: 'MyCareer', glyph: '★', locked: true }, { id: 'team', name: 'MyTEAM', glyph: '◈', locked: true }, { id: 'fran', name: 'Franchise', glyph: '▣', locked: true }, { id: 'play2', name: 'Playgrounds', glyph: '◉', locked: true },
+    const app = this.app;
+    const items = [
+      { id: 'play', name: 'Play now', ic: '▶', main: true, desc: 'Exhibition: play the CPU, a friend on the same screen, or spectate a CPU game.', go: () => this.modeSelect() },
+      { id: 'ranked', name: 'Ranked', ic: '⚡', desc: 'Five placement matches, then Bronze to Legend over a 30-day season.', go: () => this.rankedHub() },
+      { id: 'settings', name: 'Settings', ic: '⚙', desc: 'Audio, controls and rebinding, gameplay, video quality and accessibility.', go: () => this.settingsScreen() },
+      { id: 'quit', name: 'Quit', ic: '⏻', desc: 'Leave the arena. Your profile is saved automatically.', go: () => this.quit() },
+      { id: 'career', name: 'MyCareer', ic: '★', locked: true }, { id: 'team', name: 'MyTEAM', ic: '◈', locked: true }, { id: 'fran', name: 'Franchise', ic: '▣', locked: true }, { id: 'pg', name: 'Playgrounds', ic: '◉', locked: true },
     ];
-    let idx = 0; const N = tiles.length, step = 360 / N, radius = 440;
-    const car = h('div', { class: 'carousel' }); const wrap = h('div', { class: 'carousel-wrap' }, car);
-    const els = tiles.map((t, i) => { const el = h('div', { class: `tile ${t.locked ? 'locked' : ''}`, onclick: () => { if (i === idx && !t.locked) { app.audio.ui('ok'); t.go(); } else { idx = i; place(); app.audio.ui('tick'); } } }, h('div', { class: 'face' }, h('div', { class: 'glyph', style: { color: i % 2 ? 'var(--magenta)' : 'var(--cyan)' } }, t.glyph), h('div', { class: 'tname' }, t.name.toUpperCase()), t.desc ? h('div', { class: 'tdesc' }, t.desc) : h('div', { class: 'tdesc' }, 'Coming in a future update.'), t.locked ? h('div', { class: 'soon' }, 'COMING SOON') : null)); el.style.transform = `rotateY(${i * step}deg) translateZ(${radius}px)`; car.append(el); return el; });
-    const place = () => { car.style.transform = `translateZ(-${radius}px) rotateY(${-idx * step}deg)`; els.forEach((e, i) => { e.classList.toggle('active', i === idx); const d = Math.min((i - idx + N) % N, (idx - i + N) % N); e.style.opacity = d > 2 ? 0.35 : 1; }); };
-    place();
-    const el = h('div', { style: { position: 'absolute', inset: 0 } }, h('div', { id: 'brand' }, h('div', { class: 'logo' }, 'HOOPS ', h('span', {}, '27')), h('div', { class: 'sub' }, 'NEON ERA')), this.profileCard(), wrap,
-      h('div', { class: 'menu-hint' }, h('span', { class: 'kbd' }, '← →'), ' rotate  ', h('span', { class: 'kbd' }, 'Enter'), ' select  ·  controller: stick + A'));
-    this.show(el, { nav: false, scrim: false, grid: false, chip: false });
-    const handler = (kind, v, e) => {
-      if (this.current !== el) return;
-      const dir = kind === 'key' ? ({ ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[v] ?? (v === 'Enter' ? 'ok' : null)) : v;
-      if (dir === 'left') { idx = (idx - 1 + N) % N; place(); app.audio.ui('tick'); } else if (dir === 'right') { idx = (idx + 1) % N; place(); app.audio.ui('tick'); } else if (dir === 'ok') { const t = tiles[idx]; if (t.locked) { app.audio.ui('err'); toast(this.root, `${t.name} — coming soon`, 'amb'); } else { app.audio.ui('ok'); t.go(); } }
-      if (e && ['ArrowLeft', 'ArrowRight', 'Enter'].includes(v)) e.preventDefault();
-    };
-    const mm = (e) => { const x = e.clientX / innerWidth - 0.5, y = e.clientY / innerHeight - 0.5; wrap.style.transform = `rotateX(${-y * 6}deg) rotateY(${x * 8}deg)`; app.backdrop?.setParallax(x, y); };
-    app.input.menuHandlers.add(handler); window.addEventListener('mousemove', mm);
-    this.cleanup = () => { app.input.menuHandlers.delete(handler); window.removeEventListener('mousemove', mm); };
+    const desc = h('div', { class: 'mm-desc' }, items[0].desc);
+    const list = h('div', { class: 'mm' }, h('div', { class: 'mm-brand' }, h('div', { class: 'logo' }, 'HOOPS ', h('span', {}, '27')), h('div', { class: 'sub' }, 'NEON ERA')),
+      items.map((it) => h('button', { class: `mm-item ${it.main ? 'main' : ''} ${it.locked ? 'locked' : ''}`, dataset: it.main ? { default: '' } : {}, onfocus: () => { desc.textContent = it.desc ?? 'Coming in a future update.'; }, onmouseenter: (e) => { app.nav.focus(e.currentTarget); },
+        onclick: () => { if (it.locked) { app.audio.ui('err'); toast(this.root, `${it.name} — coming soon`, 'amb'); } else { app.audio.ui('ok'); it.go(); } } }, h('span', { class: 'ic' }, it.ic), it.name, it.locked ? h('span', { class: 'soon' }, 'COMING SOON') : null)));
+    const el = h('div', { style: { position: 'absolute', inset: 0 } }, list, desc, this.profileCard(), h('div', { class: 'mm-hint' }, '↑ ↓ choose  ·  Enter select  ·  controller: stick + A'));
+    this.show(el, { chip: false });
+    const mm = (e) => app.backdrop?.setParallax(e.clientX / innerWidth - 0.5, e.clientY / innerHeight - 0.5);
+    window.addEventListener('mousemove', mm); this.cleanup = () => window.removeEventListener('mousemove', mm);
+  }
+  /** Console-style top navigation shared by the top-level screens. */
+  topNav(active) {
+    const tabs = [['play', 'Play now', '▶', () => this.modeSelect()], ['ranked', 'Ranked', '⚡', () => this.rankedHub()], ['settings', 'Settings', '⚙', () => this.settingsScreen()], ['main', 'Main menu', '⌂', () => this.main()]];
+    return h('div', { class: 'topnav' }, tabs.map(([id, label, ic, go]) => h('button', { class: `tn-item ${id === active ? 'on' : ''}`, onclick: () => { if (id !== active) go(); } }, h('span', { class: 'ic' }, ic), label)));
   }
   quit() { confirmDialog(this.app, 'Quit HOOPS 27?', 'Your progress is saved automatically.', () => { this.show(h('div', { class: 'col', style: { alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center' } }, h('div', { class: 'display', style: { fontSize: '34px' } }, 'See you in the Neon Era'), h('button', { class: 'btn primary', onclick: () => this.main() }, 'Back to menu')), { nav: true }); try { window.close(); } catch { /* browsers may block */ } }, 'Quit'); }
-  settingsScreen() { const app = this.app; this.show(h('div', { class: 'col', style: { height: '100%' } }, this.title('Settings', 'Preferences saved locally', () => this.main()), h('div', { class: 'panel grow', style: { overflow: 'auto' } }, settingsPanel(app, {})), h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Back')))); }
+  settingsScreen() { const app = this.app; this.show(h('div', { class: 'col', style: { height: '100%' } }, this.topNav('settings'), this.title('Settings', 'Preferences saved locally', () => this.main()), h('div', { class: 'panel grow', style: { overflow: 'auto' } }, settingsPanel(app, {})), h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Back')))); }
 
   /* -------------------------------------------------------------- PLAY NOW */
   modeSelect() {
-    const m = (id, name, desc, glyph) => h('div', { class: 'card focusable', style: { padding: '26px', minHeight: '190px' }, onclick: () => { this.flow = { mode: id, picks: [], humans: id === 'cpu' ? [] : id === 'pvc' ? [{ team: 0, device: 'auto' }] : [{ team: 0, device: this.app.input.pads.length ? 'pad0' : 'kb1' }, { team: 1, device: this.app.input.pads.length > 1 ? 'pad1' : 'kb2' }] }; this.teamSelect(0); } },
-      h('div', { style: { fontSize: '44px' } }, glyph), h('div', { class: 'display', style: { fontSize: '18px', margin: '10px 0 6px' } }, name), h('div', { class: 'muted', style: { fontSize: '13px', lineHeight: 1.5 } }, desc));
-    this.show(h('div', { class: 'col', style: { height: '100%' } }, this.title('Play now', 'Mode select', () => this.main()),
-      h('div', { class: 'grid', style: { gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: '18px', marginTop: '10px' } }, m('pvc', 'Player vs CPU', 'You control the active player on your team. Pick a difficulty from Rookie to Hall of Fame.', '🎮'), m('pvp', 'Player vs player', 'Local versus on two controllers or a split keyboard (WASD + IJKL cluster).', '🕹'), m('cpu', 'CPU vs CPU', 'Spectate with the free camera cycle (Tab) and dynamic broadcast cuts.', '👁')),
-      h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Back'))));
+    const m = (id, name, desc, ic, alt) => h('button', { class: `tc ${alt ? 'alt' : ''}`, dataset: id === 'pvc' ? { default: '' } : {}, onclick: () => { this.flow = { mode: id, picks: [], humans: id === 'cpu' ? [] : id === 'pvc' ? [{ team: 0, device: 'auto' }] : [{ team: 0, device: this.app.input.pads.length ? 'pad0' : 'kb1' }, { team: 1, device: this.app.input.pads.length > 1 ? 'pad1' : 'kb2' }] }; this.teamSelect(0); } },
+      h('div', { class: 'tc-ic' }, ic), h('div', { class: 'tc-name' }, name), h('div', { class: 'tc-desc' }, desc));
+    this.show(h('div', { class: 'col', style: { height: '100%' } }, this.topNav('play'), this.title('Play now', 'Choose a mode', () => this.main()),
+      h('div', { class: 'tallrow' }, m('pvc', 'Quick play', 'Player vs CPU. You control the active player. Pick a difficulty from Rookie to Hall of Fame.', '▶'), m('pvp', 'Local versus', 'Two players on one screen: two controllers, or a split keyboard (WASD + IJKL).', '⇄', true), m('cpu', 'Spectate', 'CPU vs CPU with the camera cycle (Tab) and dynamic broadcast cuts.', '◉')),
+      h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Main menu'))));
   }
   teamCard(t, cb, sel) {
     return h('div', { class: `card ${sel ? 'sel' : ''}`, style: { '--tc': t.colors.primary, '--tcg': t.colors.primary + '66' }, onclick: () => cb(t) }, h('div', { class: 'logo', html: t.logoSvg }), h('div', { class: 'tn' }, `${t.city} ${t.name}`), h('div', { class: 'ts' }, t.style), h('div', { class: 'ts' }, 'Arena: ' + ARENAS.find((a) => a.id === t.arenaId).name),
@@ -173,7 +170,7 @@ export class Screens {
     const right = h('div', { class: 'col', style: { flex: 0.9, minWidth: 0 } }, h('div', { class: 'panel grow scroll', style: { minHeight: 0 } }, h('div', { class: 'row' }, h('div', { class: 'display', style: { fontSize: '14px' } }, 'Season leaderboard'), h('div', { class: 'spacer' }), h('span', { class: 'crumbs' }, `You: #${lb.find((x) => x.you).rank} of ${lb.length}`)), h('div', { class: 'lb-row head' }, h('span', {}, '#'), h('span', {}, 'Gamertag'), h('span', {}, 'MMR'), h('span', {}, 'LVL'), h('span', {}, 'W–L')), lb.map((r) => h('div', { class: `lb-row ${r.you ? 'you' : ''}` }, h('span', {}, r.rank), h('span', {}, r.tag), h('span', {}, r.mmr), h('span', {}, r.level), h('span', {}, `${r.wins}–${r.losses}`)))),
       h('div', { class: 'panel amb' }, h('div', { class: 'crumbs', style: { marginBottom: '6px' } }, 'Season rewards preview'), h('div', { class: 'row wrap', style: { gap: '6px 12px', fontSize: '11px' } }, R.REWARDS.map(([t, r]) => h('span', { class: `t-${t}` }, `${t}: ${r}`)))),
       h('div', { class: 'panel flat', style: { fontSize: '12px', lineHeight: 1.6 } }, h('b', { class: 'cy' }, 'Ranked rules  '), `5-min quarters · fouls on · fatigue on · shot meter forced to Standard · no rematch · ${RANKED.pauseBudgetSec}s total pause (then forfeit) · rage-quit = loss × ${RANKED.rageQuitMult} MMR · K ${RANKED.kPlacement} (placement) / ${RANKED.kNormal} · streak bonus +${RANKED.streakBonus} from win ${RANKED.streakStartAt} (max +${RANKED.streakCap})`));
-    this.show(h('div', { class: 'col', style: { height: '100%' } }, this.title('Ranked', `Season ${p.seasonId}`, () => this.main()), h('div', { class: 'row grow', style: { alignItems: 'stretch', minHeight: 0, gap: '16px' } }, left, right), h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Back'), h('div', { class: 'spacer' }), h('button', { class: 'btn primary', dataset: { default: '' }, onclick: () => this.rankedTeam() }, R.placementDone(p) ? 'Play ranked match' : `Play placement ${p.games + 1}/${RANKED.placementGames}`))));
+    this.show(h('div', { class: 'col', style: { height: '100%' } }, this.topNav('ranked'), this.title('Ranked', `Season ${p.seasonId}`, () => this.main()), h('div', { class: 'row grow', style: { alignItems: 'stretch', minHeight: 0, gap: '16px' } }, left, right), h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Back'), h('div', { class: 'spacer' }), h('button', { class: 'btn primary', dataset: { default: '' }, onclick: () => this.rankedTeam() }, R.placementDone(p) ? 'Play ranked match' : `Play placement ${p.games + 1}/${RANKED.placementGames}`))));
   }
   drawMmr(c, p) {
     const g = c.getContext('2d'), W = c.width, H = c.height, s = p.mmrSeries.slice(-30); const lo = Math.min(...s) - 20, hi = Math.max(...s) + 20; const X = (i) => 12 + (i / Math.max(1, s.length - 1)) * (W - 24), Y = (v) => H - 14 - ((v - lo) / (hi - lo)) * (H - 28);
