@@ -1,6 +1,6 @@
 // Player actions: shooting flow (spec §5), passing, steals, blocks, dribble moves, post-ups, rebounds.
 import { SHOT, VARIANTS, AIRTIME, PASS, COURT, RULES, AI } from '../tuning.js';
-import { makeProbability, windowWidthMs, gradeOffset, meterDuration, missBias, gaussian, streakTier } from './shooting.js';
+import { rangeWindowScale, makeProbability, windowWidthMs, gradeOffset, meterDuration, missBias, gaussian, streakTier } from './shooting.js';
 import { contestLevel, blockChance } from './contest.js';
 import { foulProbability } from './foul.js';
 import { clamp } from '../engine/rng.js';
@@ -144,7 +144,9 @@ function shotWindow(g, p, a, contest) {
   const bonus = p.data.form.windowBonusMs + (p.perfectChain > 0 ? badge(p, 'greenMachine', 'windowMsAfterPerfect') : 0);
   // spec formula, then extra squeeze from defender pressure: nobody greens a shot with a hand in their face
   const w = windowWidthMs({ type: a.type, rating: a.rating, contest, fatigue, badgeBonus: bonus });
-  return a.type === 'ft' ? w : Math.max(14, w * (1 - 0.7 * contest * contest - 0.15 * contest));
+  if (a.type === 'ft') return w;
+  const dist = Math.max(0, hoopDist(p.pos, a.side) - (a.type === 'three' || a.type === 'midrange' ? badge(p, 'limitless', 'idealRangeAdd') : 0)); // deep range is harder to green
+  return Math.max(12, w * rangeWindowScale(dist) * (1 - 0.7 * contest * contest - 0.15 * contest));
 }
 
 /** Contest from the closest threatening defender at the release moment. */

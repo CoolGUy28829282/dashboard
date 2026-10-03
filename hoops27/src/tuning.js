@@ -22,6 +22,8 @@ export const SHOT = {
   base: { floor: 0.12, span: 0.78, exp: 1.35, minR: 25, maxR: 99 },
   distance: { falloff: 0.045, min: 0.4, max: 1.0 },
   ideal: { midrange: 4.0, three: 7.24, fadeaway: 4.5, floater: 2.0, layup: 0, dunk: 0, ft: 4.57 },
+  // green window vs range: full size out to just past the three-point line, then it shrinks per metre of extra distance
+  range: { fullUntil: 7.5, perMeter: 0.085, min: 0.3 },
   contestPenalty: 0.55, fatiguePenalty: 0.18, fatigueExp: 1.2,
   offDribble: -0.06, offBalance: -0.12, catchShoot: 0.04,
   streak: { hotPerTier: 0.04, hotMax: 0.12, coldPerTier: 0.03, coldMax: 0.09 },

@@ -56,6 +56,8 @@ All keyboard and gamepad bindings can be remapped in Settings → Controls. Game
 
 ## Defence and shot quality
 
+Range matters too: the green window is full size out to just past the three-point line (7.5 m from the rim), then shrinks about 8.5% per extra metre (floor 30%), so heaves are hard to green.
+
 A defender in your face changes the shot, not just the percentage: the green window shrinks with pressure, and the best grade you can earn is capped by it (**Contested** caps at Excellent, **Smothered** caps at Good, so you cannot green a shot with a hand in your face). Get open with screens, hesitations, step-backs and by beating your man. Dunks need a clear lane (a rim protector removes them from the AI's options and lowers a forced dunk's success), and blocks are likelier on rim attempts.
 
 ## The shooting system (the part to read first)

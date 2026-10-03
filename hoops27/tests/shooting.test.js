@@ -146,3 +146,12 @@ describe('defender pressure', () => {
   });
   it('labels the pressure tiers', () => { expect([0, 0.3, 0.5, 0.9].map(pressureLabel)).toEqual(['OPEN', 'TIGHT', 'CONTESTED', 'SMOTHERED']); });
 });
+
+import { rangeWindowScale } from '../src/gameplay/shooting.js';
+describe('range scales the green window', () => {
+  it('is full size to the three-point line, then shrinks monotonically with a floor', () => {
+    expect(rangeWindowScale(2)).toBe(1); expect(rangeWindowScale(7.24)).toBe(1); expect(rangeWindowScale(7.5)).toBe(1);
+    let prev = 1; for (let d = 7.6; d <= 25; d += 0.7) { const s = rangeWindowScale(d); expect(s).toBeLessThanOrEqual(prev); prev = s; }
+    expect(rangeWindowScale(9)).toBeCloseTo(1 - 0.085 * 1.5, 3); expect(rangeWindowScale(40)).toBe(0.3);
+  });
+});

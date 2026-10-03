@@ -7,6 +7,10 @@ export function releaseSpeedMod(shotSpeedRating) {
   const r = SHOT.releaseSpeed;
   return clamp(r.a - r.b * shotSpeedRating, r.min, r.max);
 }
+/** Window multiplier by shot distance (m from the rim): 1 inside/at the three, shrinking beyond it. */
+export function rangeWindowScale(distance) {
+  const r = SHOT.range; return clamp(1 - r.perMeter * Math.max(0, distance - r.fullUntil), r.min, 1);
+}
 export const meterDuration = (type, shotSpeedRating) => SHOT.baseTime[type] * (type === 'ft' ? 1 : releaseSpeedMod(shotSpeedRating));
 
 /** Perfect (green) window width in ms. fatigue is 0..1 (share of stamina lost). */
