@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Courtline — Pro Basketball</title>
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="vignette"></div>
+<div id="ui"></div>
+<div id="prompts"></div>
+<div id="ticker" class="hidden"><div class="ticker-label">League wire</div><div class="ticker-clip"><div class="ticker-track" id="tickerTrack"></div></div></div>
+<div id="loading" class="hidden">
+  <div class="load-card">
+    <div class="load-ball"></div>
+    <div class="load-title" id="loadTitle">Loading</div>
+    <div class="load-bar"><i id="loadFill"></i></div>
+    <div class="load-label" id="loadLabel"></div>
+    <div class="load-tip" id="loadTip"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="fps" class="hidden"></div>
+<div id="perf" class="hidden"><canvas width="240" height="64"></canvas><pre></pre></div>
+<noscript><p style="padding:2rem">Courtline needs JavaScript and WebGL.</p></noscript>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
