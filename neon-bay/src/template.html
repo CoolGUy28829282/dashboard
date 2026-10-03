@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>NEON BAY</title>
+<style>
+  :root{--pink:#ff2d95;--cyan:#22e6ff;--gold:#ffb02e}
+  html,body{margin:0;height:100%;background:#07040f;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff;user-select:none}
+  canvas#gl{display:block;width:100vw;height:100vh}
+  #load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#07040f;z-index:100;transition:opacity .6s}
+  #load.hide{opacity:0;pointer-events:none}
+  #load h1{font:800 clamp(40px,8vw,96px)/1 system-ui;font-style:italic;letter-spacing:.08em;margin:0;background:linear-gradient(180deg,#fff,#ff7ab8 60%,#22e6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #load .bar{width:min(420px,70vw);height:6px;background:rgba(255,255,255,.12);margin-top:28px;border-radius:3px;overflow:hidden}
+  #load .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--pink));transition:width .2s}
+  #load p{margin:12px 0 0;font:12px ui-monospace,monospace;letter-spacing:.3em;color:#9fb;opacity:.8}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="load"><h1>NEON BAY</h1><div class="bar"><i id="loadbar"></i></div><p id="loadmsg">GENERATING CITY…</p></div>
+__INLINE__
+</body>
+</html>

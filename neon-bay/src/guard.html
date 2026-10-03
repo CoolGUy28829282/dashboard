@@ -1,0 +1,8 @@
+<script>
+(function(){var L=function(){return document.getElementById('load')};
+function show(m){var l=L();if(l){l.style.letterSpacing='0';l.style.padding='24px';l.style.textAlign='center';l.style.whiteSpace='pre-wrap';l.textContent='Could not start the game.\n\n'+m}}
+window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename.split('/').pop()+':'+e.lineno:''))});
+window.addEventListener('unhandledrejection',function(e){show(String(e.reason))});
+try{var c=document.createElement('canvas');if(!(c.getContext('webgl2')||c.getContext('webgl')))show('WebGL is not available in this browser. Enable hardware acceleration or try Chrome/Firefox/Edge.')}catch(x){}
+})();
+</script>
