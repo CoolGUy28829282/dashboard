@@ -41,3 +41,8 @@ Each entry: date, decision, why, how to reverse.
    inside). Both are tested.
 10. **Watch setups estimate risk with half an ATR14 of the timeframe** as the assumed sweep depth, so the
     R:R shown before any sweep exists is a plausible number rather than the level-plus-buffer fantasy.
+11. **`hoops27/` — a self-contained 3D basketball game added in its own folder.** The request ("HOOPS 27: NEON ERA") is unrelated to the
+    pre-market dashboard, so it lives in an isolated npm project (`hoops27/`, its own `package.json`, tests and README) and touches nothing in
+    `backend/`, `frontend/`, `config/` or `data/`. The dashboard's non-negotiables (decision-support only, no invented numbers, `make check`,
+    NY timezones) govern the dashboard, not the game; `make check` does not cover `hoops27/` (use `cd hoops27 && npm test`). Chosen defaults and
+    known limitations are in `hoops27/README.md`.
