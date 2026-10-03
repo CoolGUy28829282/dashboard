@@ -8,7 +8,7 @@ const TILES = [
   { id: 'franchise', name: 'Franchise', desc: 'Run a team across seasons.', phase: 8, hue: 200, icon: 'franchise' },
   { id: 'builder', name: 'Team Builder', desc: 'Collect cards and build a lineup.', phase: 9, hue: 150, icon: 'builder' },
   { id: 'street', name: 'Streetball', desc: 'Park, rooftop and beach games.', phase: 6, hue: 340, icon: 'street' },
-  { id: 'gym', name: 'Gym', desc: 'Shootaround, drills and tutorials.', phase: 2, hue: 48, icon: 'gym' },
+  { id: 'gym', name: 'Gym', desc: 'Free shootaround. Play now.', phase: 1, hue: 48, icon: 'gym' },
   { id: 'stats', name: 'Stats & Records', desc: 'Leaders, records and trophies.', phase: 9, hue: 175, icon: 'stats' },
   { id: 'creator', name: 'Creator', desc: 'Edit players, teams and logos.', phase: 9, hue: 300, icon: 'creator' },
   { id: 'settings', name: 'Settings', desc: 'Gameplay, controls, camera, graphics, audio.', phase: 0, hue: 215, icon: 'settings' },
@@ -28,6 +28,7 @@ export function menuScreen(params, ctx) {
     const el = h('button', { class: 'tile' + (locked ? ' locked' : ''), 'data-nav': '', 'data-quiet': locked ? '1' : null, style: { '--h': t.hue }, 'data-autofocus': t.id === 'play' ? '' : null,
       onClick: () => {
         if (t.id === 'settings') router.push('settings');
+        else if (t.id === 'gym') router.push('gym');
         else { audio.sfx('error', 0.6); toast(`${t.name} unlocks in Phase ${t.phase}`); }
       } },
     icon(t.icon),

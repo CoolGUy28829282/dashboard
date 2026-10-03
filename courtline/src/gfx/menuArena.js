@@ -105,7 +105,7 @@ export class MenuArena {
     const a = build(), b = build();
     b.g.rotation.y = Math.PI;
     this.scene.add(a.g, b.g);
-    this.net = a.net;
+    this.net = a.net; this.nets = [a.net, b.net];
   }
   _stands() {
     const rows = 22, ext = C.halfL + 2.2;
@@ -267,6 +267,7 @@ export class MenuArena {
   step(dt) {
     this.time += dt;
     if (!this.human) return;
+    if (this.gym) { this.gym.step(dt); return; }
     this._stepShooter(dt);
     this._stepBall(dt);
     this.netK *= Math.exp(-3.2 * dt);
@@ -411,6 +412,7 @@ export class MenuArena {
   render(renderer, alpha, dt) {
     const hm = this.human, s = this.sh, b = this.b;
     if (!hm) return;
+    if (this.gym) { this.gym.render(renderer, alpha, dt); return; }
     const px = lerp(s.px, s.x, alpha), pz = lerp(s.pz, s.z, alpha), yaw = lerp(s.pyaw, s.pyaw + (((s.yaw - s.pyaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI), alpha);
     const jump = lerp(s.pjump, s.jump, alpha), crouch = lerp(s.pcrouch, s.crouch, alpha);
     const bx = lerp(b.px, b.x, alpha), by = lerp(b.py, b.y, alpha), bz = lerp(b.pz, b.z, alpha);
@@ -438,13 +440,13 @@ export class MenuArena {
     this._camera(dt, px, pz, s.vx, s.vz);
     renderer.render(this.scene, this.camera);
   }
-  _camera(dt, px, pz, vx, vz) {
+  _camera(dt, px, pz, vx, vz, hoopX = HOOP_X) {
     const st = this.settings, cp = this.cp, cs = this.cs, cam = this.camera;
     const pr = PRESET[st.get('camPreset')] || PRESET.broadcast;
     const rad = pr.r * st.get('camZoom'), hgt = st.get('camHeight');
-    this.az += dt * 0.045;
+    if (!this.gym) this.az += dt * 0.045;
     const az = this.az + st.get('camAngle') * DEG;
-    const fx = lerp(px, HOOP_X, 0.28) + vx * 0.35, fz = lerp(pz, 0, 0.28) + vz * 0.35;
+    const bl = this.gym ? 0.5 : 0.28, fx = lerp(px, hoopX, bl) + vx * 0.35, fz = lerp(pz, 0, bl) + vz * 0.35;
     const dx = clamp(fx + Math.sin(az) * rad, -C.halfL - 2, C.halfL + 2), dz = clamp(fz + Math.cos(az) * rad, -C.halfW - 1.7, C.halfW + 1.7), dy = clamp(hgt, 0.6, 20);
     if (!this.camInit) { this.camInit = true; cp.x = dx; cp.y = dy; cp.z = dz; cp.tx = fx; cp.ty = 1.2; cp.tz = fz; }
     cp.x = smoothDamp(cp.x, dx, cs.x, 0.5, dt); cp.y = smoothDamp(cp.y, dy, cs.y, 0.5, dt); cp.z = smoothDamp(cp.z, dz, cs.z, 0.5, dt);

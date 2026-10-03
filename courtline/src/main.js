@@ -44,6 +44,7 @@ import { splashScreen, titleScreen } from './ui/screens/intro.js';
 import { menuScreen } from './ui/screens/menu.js';
 import { settingsScreen, controlsScreen } from './ui/screens/settings.js';
 import { leagueScreen } from './ui/screens/league.js';
+import { gymScreen } from './ui/screens/gym.js';
 import { h } from './core/util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -70,6 +71,7 @@ async function main() {
   router.register('settings', settingsScreen);
   router.register('controls', controlsScreen);
   router.register('league', leagueScreen);
+  router.register('gym', gymScreen);
   router.register('error', (p) => ({
     el: h('div', { class: 'center' }, h('div', { class: 'panel err' }, h('h1', { class: 'h1' }, p.title), h('p', { class: 'dim' }, p.message),
       h('button', { class: 'btn primary', 'data-nav': '', 'data-autofocus': '', onClick: () => location.reload() }, 'Reload'))),
