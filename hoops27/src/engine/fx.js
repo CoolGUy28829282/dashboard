@@ -47,11 +47,12 @@ export class ShotMeterView {
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), this.mat); this.mesh.rotation.x = -Math.PI / 2; this.mesh.position.y = 0.03; this.mesh.visible = false;
     this.group = new THREE.Group(); this.group.add(this.mesh); scene.add(this.group);
     this.contest = new THREE.Mesh(new THREE.RingGeometry(0.78, 0.9, 40), new THREE.MeshBasicMaterial({ color: COLORS.lime, transparent: true, opacity: 0.8, depthWrite: false })); this.contest.rotation.x = -Math.PI / 2; this.contest.position.y = 0.025; this.contest.visible = false; this.group.add(this.contest);
+    this.glow = new THREE.Mesh(new THREE.CircleGeometry(0.85, 40), new THREE.MeshBasicMaterial({ color: COLORS.lime, transparent: true, opacity: 0.2, depthWrite: false })); this.glow.rotation.x = -Math.PI / 2; this.glow.position.y = 0.02; this.glow.visible = false; this.group.add(this.glow);
     this.dot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: COLORS.cyan })); this.dot.visible = false; this.group.add(this.dot);
     this.palette = { track: COLORS.cyan, good: COLORS.lime, warn: COLORS.amber, bad: COLORS.danger, ok: COLORS.lime, mid: COLORS.amber };
     this.flashT = 0;
     // overhead bar (2K style): billboard above the shooter's head
-    this.bar = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.27), new THREE.ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false, uniforms: { fill: { value: 0 }, winC: { value: 0.92 }, winW: { value: 0.1 }, time: { value: 0 }, fillCol: { value: new THREE.Color('#e9f6ff') }, greenCol: { value: new THREE.Color('#2dff4f') }, resCol: { value: new THREE.Color('#ffffff') }, res: { value: 0 }, contest: { value: 0 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: BAR_FS }));
+    this.bar = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.2), new THREE.ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false, uniforms: { fill: { value: 0 }, zoneLo: { value: 0.85 }, time: { value: 0 }, greenCol: { value: new THREE.Color('#34ff55') }, resCol: { value: new THREE.Color('#ffffff') }, res: { value: 0 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: BAR_FS }));
     this.bar.renderOrder = 20; this.bar.visible = false; scene.add(this.bar); this.hold = 0; this.holdFill = 0; this.holdP = null;
   }
   /** Freeze the bar for a moment after release and tint it by grade (perfect = green, early/late = amber, way off = red). */
@@ -68,14 +69,13 @@ export class ShotMeterView {
     const m = p?.shotMeter, a = p?.action;
     this.flashT = Math.max(0, this.flashT - dt); this.mat.uniforms.flash.value = this.flashT;
     const bu = this.bar.material.uniforms; this.hold = Math.max(0, this.hold - dt);
-    if (this.hold > 0 && this.holdP) { // post-release: bar stays frozen with the result colour, then fades
-      const q = this.holdP; this.bar.visible = style === 'overhead'; this.bar.position.set(q.pos.x, q.y + q.height + 0.42, q.pos.z); if (ctx.camera) this.bar.quaternion.copy(ctx.camera.quaternion);
-      bu.fill.value = this.holdFill; bu.res.value = Math.min(1, this.hold * 4); bu.time.value = t; this.bar.scale.setScalar(this.distScale(ctx, q) * (1 + (this.hold > 0.6 ? (this.hold - 0.6) * 1.6 : 0)));
+    if (this.hold > 0 && this.holdP) { // post-release: the blade freezes with the result colour, then fades
+      const q = this.holdP; this.bar.visible = style === 'overhead'; this.placeBar(q, ctx); bu.fill.value = this.holdFill; bu.res.value = Math.min(1, this.hold * 3); bu.time.value = t;
     } else { this.bar.visible = false; bu.res.value = 0; }
     if (style === 'overhead' && p && m && a && !a.released) {
-      const fo = Math.min(1.2, m.t / m.D) * 0.92, wf = (m.windowMs / 1000 / m.D) * 0.92; bu.fill.value = fo; bu.winW.value = wf; bu.winC.value = 0.92; bu.time.value = t; bu.res.value = 0; bu.resCol.value.set('#ffffff'); this.hold = 0;
-      this.bar.visible = true; this.bar.scale.setScalar(this.distScale(ctx, p)); this.bar.position.set(p.pos.x, p.y + p.height + 0.42, p.pos.z); if (ctx.camera) this.bar.quaternion.copy(ctx.camera.quaternion);
-      this.mesh.visible = false; this.dot.visible = false; this.group.position.set(p.pos.x, 0, p.pos.z); this.placeContest(p, m); this.contest.visible = true; return;
+      const wf = Math.min(0.5, (m.windowMs / 1000 / m.D)); // zone height as a share of the blade; 100% fill lands in the middle of the zone
+      const top = 1 - wf / 2; bu.zoneLo.value = 1 - wf; bu.fill.value = Math.min(1, (m.t / m.D) * top); bu.time.value = t; bu.res.value = 0; bu.resCol.value.set('#ffffff'); this.hold = 0;
+      this.bar.visible = true; this.placeBar(p, ctx); this.mesh.visible = false; this.dot.visible = false; this.group.position.set(p.pos.x, 0, p.pos.z); this.placeContest(p, m); this.contest.visible = true; return;
     }
     if (!p || !m || !a || a.released || style === 'off') { this.mesh.visible = false; this.dot.visible = false; this.contest.visible = !!(p && m && a && !a.released && style !== 'off' && ctx.showContest); if (this.contest.visible) this.placeContest(p, m); this.group.position.set(p?.pos.x ?? 0, 0, p?.pos.z ?? 0); return; }
     this.group.position.set(p.pos.x, 0, p.pos.z); 
@@ -89,7 +89,14 @@ export class ShotMeterView {
     // minimal dot at the head
     this.dot.visible = style === 'minimal'; if (this.dot.visible) { this.dot.position.set(0, p.y + p.height + 0.35, 0); const inWin = Math.abs(f - 0.92) < wFrac / 2; this.dot.material.color.set(inWin ? this.palette.green : '#ffffff'); this.dot.scale.setScalar(inWin ? 1.8 : 1); }
   }
-  /** keep the bar a readable size on screen regardless of camera distance */
+  /** stand the crescent beside the shooter (screen-left of the body), facing the camera, sized to the player */
+  placeBar(p, ctx) {
+    const cam = ctx.camera; if (!cam) { this.bar.position.set(p.pos.x, p.y + p.height * 0.6, p.pos.z); return; }
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion); this.bar.quaternion.copy(cam.quaternion);
+    const k = p.height / 2.0, d = Math.hypot(cam.position.x - p.pos.x, cam.position.z - p.pos.z); const near = Math.min(1.5, Math.max(1, d / 14)); // stays legible from far cameras
+    this.bar.scale.setScalar(k * near); this.bar.position.set(p.pos.x - right.x * 0.6 * k * near, p.y + p.height * 0.58, p.pos.z - right.z * 0.6 * k * near);
+  }
+  /** (legacy) keep the bar a readable size on screen regardless of camera distance */
   distScale(ctx, p) { if (!ctx.camera) return 1; const d = Math.hypot(ctx.camera.position.x - p.pos.x, ctx.camera.position.y - 2, ctx.camera.position.z - p.pos.z); return Math.min(2.6, Math.max(0.9, d / 11)); }
-  placeContest(p, m) { const c = m.contest ?? 0; this.contest.material.color.set(c < 0.25 ? this.palette.ok : c < 0.6 ? this.palette.mid : this.palette.bad); this.contest.position.y = 0.025; }
+  placeContest(p, m) { const c = m.contest ?? 0; const col = c < 0.25 ? this.palette.ok : c < 0.6 ? this.palette.mid : this.palette.bad; this.contest.material.color.set(col); this.glow.material.color.set(col); this.glow.visible = this.contest.visible || true; this.contest.position.y = 0.025; }
 }

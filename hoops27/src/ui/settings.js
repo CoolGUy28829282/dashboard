@@ -40,7 +40,7 @@ export function settingsPanel(app, { onChange, tabs = ['Audio', 'Controls', 'Gam
     },
     Gameplay: () => [
       field('Shot input', seg([['button', 'Button (hold + release)'], ['stick', 'Shot stick']], S.gameplay.shotInput, (v) => { S.gameplay.shotInput = v; save(); })),
-      field('Shot meter', seg([['overhead', 'Overhead bar'], ['standard', 'Arc (feet)'], ['minimal', 'Minimal'], ['off', 'Off']], S.gameplay.shotMeter, (v) => { S.gameplay.shotMeter = v; save(); }), 'Ranked forces the overhead bar'),
+      field('Shot meter', seg([['overhead', 'Crescent (2K style)'], ['standard', 'Arc (feet)'], ['minimal', 'Minimal'], ['off', 'Off']], S.gameplay.shotMeter, (v) => { S.gameplay.shotMeter = v; save(); }), 'Ranked forces the crescent'),
       field('Default camera', h('select', { onchange: (e) => { S.gameplay.camera = e.target.value; save(); } }, CAMERA_PRESETS.map((c) => h('option', { value: c, selected: S.gameplay.camera === c }, CAMERA_LABEL[c])))),
       field('Sprint toggle', toggle(S.gameplay.sprintToggle, (v) => { S.gameplay.sprintToggle = v; save(); })),
       field('Play-call UI', toggle(S.gameplay.playCallUI, (v) => { S.gameplay.playCallUI = v; save(); })),
