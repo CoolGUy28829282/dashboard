@@ -53,9 +53,9 @@ export class CameraRig {
         want.set(bx * 0.45, 27, HALF_W + 4.5); tgt.set(bx * 0.45, 0, 0.5); fov = 46; tp = 0.5; break; }
       case 'stadium': { // TV angle: closer, lower, leads the play so players stay large
         const dir = Math.sign(s.vel.x) || 0; want.set(bx * 0.92 + dir * 2.2 + s.vel.x * 0.2, 7.4, HALF_W + 10.2 - Math.min(2.5, Math.abs(s.vel.x) * 0.15)); tgt.set(bx + s.vel.x * 0.5, 0.9, -0.8); fov = 36; tp = 0.42; if (this.clutch) { want.z -= 1.6; want.y -= 0.8; fov -= 3; } break; }
-      case 'end': { // behind the ball, elevated, looking down-court at the attacked basket (the whole key stays in frame)
+      case 'end': { // straight down the long axis behind the ball, elevated, looking down-court at the attacked basket (the whole key stays in frame)
         const side = s.attackSide || 1, rimX = side * RIM_X; const cxp = THREE.MathUtils.clamp(b.x - side * 13.5, -HALF_L - 2.5, HALF_L + 2.5);
-        want.set(cxp, 6.0, THREE.MathUtils.clamp(b.z * 0.3, -2.5, 2.5)); tgt.set(b.x + (rimX - b.x) * 0.6, 1.7, b.z * 0.3); // straight down the long axis, hoop centred fov = 40; tp = 0.5; if (this.clutch) { want.y -= 0.6; fov -= 2; } break; }
+        want.set(cxp, 6.0, THREE.MathUtils.clamp(b.z * 0.3, -2.5, 2.5)); tgt.set(b.x + (rimX - b.x) * 0.6, 1.7, b.z * 0.3); fov = 40; tp = 0.5; if (this.clutch) { want.y -= 0.6; fov -= 2; } break; }
       case 'low': { want.set(bx * 0.95 + s.vel.x * 0.12, 2.4, HALF_W + 6.2); tgt.set(bx + s.vel.x * 0.4, 1.15, 0); fov = 40; tp = 0.3; break; }
       case 'drive': { // stadium framing until the ball handler attacks the rim, then a tight chase cam
         const p = s.ctrl, side = s.attackSide || 1; let k = 0;
