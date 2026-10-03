@@ -109,7 +109,7 @@ export async function buildWorld(G, progress = () => {}) {
   const tex = { deco: facadeTex('deco'), mid: facadeTex('mid'), glass: facadeTex('glass'), ind: facadeTex('ind'), art: facadeTex('art') };
   const mats = {};
   for (const k in tex) mats[k] = new THREE.MeshStandardMaterial({ map: tex[k].map, vertexColors: true, roughness: tex[k].rough, metalness: tex[k].metal, emissive: 0xffffff, emissiveMap: tex[k].em, emissiveIntensity: 1, envMapIntensity: k === 'glass' ? 1.6 : 0.5 });
-  mats.trim = new THREE.MeshBasicMaterial({ vertexColors: true });
+  mats.trim = new THREE.MeshBasicMaterial({ vertexColors: true }); mats.shop = new THREE.MeshBasicMaterial({ vertexColors: true });
   mats.concrete = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
   mats.dark = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.55, metalness: 0.7 });
   mats.red = new THREE.MeshBasicMaterial({ color: col('#ff2a2a', 5) });
@@ -164,8 +164,9 @@ export async function buildWorld(G, progress = () => {}) {
   };
   const frontStrip = (c, side, p, y, hgt, color, th = 0.25) => { // shopfront band on an outward side
     const L = (side === 'n' || side === 's' ? p.w : p.d) - 1.5;
-    if (side === 'n') trim(c, L, hgt, th, p.cx, y, p.cz - p.d / 2 - th / 2, color); else if (side === 's') trim(c, L, hgt, th, p.cx, y, p.cz + p.d / 2 + th / 2, color);
-    else if (side === 'w') trim(c, th, hgt, L, p.cx - p.w / 2 - th / 2, y, p.cz, color); else trim(c, th, hgt, L, p.cx + p.w / 2 + th / 2, y, p.cz, color);
+    const shop = (w, h, d, x, yy, z) => { const g = new THREE.BoxGeometry(w, h, d).translate(x, yy + h / 2, z); colorize(g, new THREE.Color(color)); put(c, 'shop', g); };
+    if (side === 'n') shop(L, hgt, th, p.cx, y, p.cz - p.d / 2 - th / 2); else if (side === 's') shop(L, hgt, th, p.cx, y, p.cz + p.d / 2 + th / 2);
+    else if (side === 'w') shop(th, hgt, L, p.cx - p.w / 2 - th / 2, y, p.cz); else shop(th, hgt, L, p.cx + p.w / 2 + th / 2, y, p.cz);
   };
   const roofStuff = (c, p, h) => { const n = 1 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) dark(c, 1.5 + rng() * 2, 1 + rng() * 1.2, 1.5 + rng() * 2, p.cx + (rng() - 0.5) * p.w * 0.6, h, p.cz + (rng() - 0.5) * p.d * 0.6); if (rng() < 0.3) cyl(c, 1.2, 2.6, p.cx + (rng() - 0.5) * p.w * 0.5, h, p.cz + (rng() - 0.5) * p.d * 0.5); };
   const sidesOf = (p, cols, rows) => { const s = []; if (p.r === 0) s.push('n'); if (p.r === rows - 1) s.push('s'); if (p.c === 0) s.push('w'); if (p.c === cols - 1) s.push('e'); return s; };
@@ -308,15 +309,15 @@ export async function buildWorld(G, progress = () => {}) {
   const lampN = sigPoles.length * 3, sigLamp = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.3, 0.1), new THREE.MeshBasicMaterial({ fog: false }), lampN), so = new THREE.Object3D(), tmpC = new THREE.Color();
   sigPoles.forEach((p, k) => { const dirx = approach[p.a][0], dirz = approach[p.a][1]; for (let l = 0; l < 3; l++) { so.position.set(p.x - dirx * 0.2, 0.25 + 5.4 - l * 0.4, p.z - dirz * 0.2); so.rotation.set(0, Math.atan2(-dirx, -dirz), 0); so.updateMatrix(); sigLamp.setMatrixAt(k * 3 + l, so.matrix); sigLamp.setColorAt(k * 3 + l, tmpC.set('#220000')); } });
   sigLamp.frustumCulled = false; scene.add(sigLamp); world.sigLamp = sigLamp; world.sigPoles = sigPoles;
-  world.signalState = (i, j, axis, t) => { const u = (t + (i * 7 + j * 13) % 24) % 24; if (axis === 0) return u < 10 ? 2 : u < 12 ? 1 : 0; return u < 12 ? 0 : u < 22 ? 2 : 1; }; // 0 red 1 yellow 2 green; axis 0 = travel along x
+  world.signalState = (i, j, axis, t) => { const u = (t + (i * 7 + j * 13) % 18) % 18; if (axis === 0) return u < 7.5 ? 2 : u < 9 ? 1 : 0; return u < 9 ? 0 : u < 16.5 ? 2 : 1; }; // 0 red 1 yellow 2 green; axis 0 = travel along x
   world.sigCache = new Int8Array(world.signals.length * 2).fill(-1);
 
   // ---- finalize chunk meshes
-  const keyMat = { deco: mats.deco, mid: mats.mid, glass: mats.glass, ind: mats.ind, art: mats.art, trim: mats.trim, dark: mats.dark, concrete: mats.concrete, sign: mats.sign, ad: mats.ad, mural: mats.mural, red: mats.red, grass: mats.grass, pond: mats.pond };
+  const keyMat = { deco: mats.deco, mid: mats.mid, glass: mats.glass, ind: mats.ind, art: mats.art, trim: mats.trim, shop: mats.shop, dark: mats.dark, concrete: mats.concrete, sign: mats.sign, ad: mats.ad, mural: mats.mural, red: mats.red, grass: mats.grass, pond: mats.pond };
   let ci = 0, cn = chunkMap.size;
   for (const c of chunkMap.values()) {
     const grp = new THREE.Group();
-    for (const k in c.parts) { const arr = c.parts[k]; if (!arr.length) continue; const g = mergeGeometries(arr, false); if (!g) { console.warn('merge failed', k); continue; } arr.forEach(a => a.dispose()); const m = new THREE.Mesh(g, keyMat[k]); m.castShadow = !['sign', 'ad', 'trim', 'grass', 'pond', 'red', 'mural'].includes(k); m.receiveShadow = ['deco', 'mid', 'glass', 'ind', 'art', 'concrete', 'grass', 'dark'].includes(k); grp.add(m); }
+    for (const k in c.parts) { const arr = c.parts[k]; if (!arr.length) continue; const g = mergeGeometries(arr, false); if (!g) { console.warn('merge failed', k); continue; } arr.forEach(a => a.dispose()); const m = new THREE.Mesh(g, keyMat[k]); m.castShadow = !['sign', 'ad', 'trim', 'shop', 'grass', 'pond', 'red', 'mural'].includes(k); m.receiveShadow = ['deco', 'mid', 'glass', 'ind', 'art', 'concrete', 'grass', 'dark'].includes(k); grp.add(m); }
     scene.add(grp); world.chunks.push({ group: grp, x: c.x, z: c.z }); if (++ci % 6 === 0) { progress(0.7 + 0.2 * ci / cn); await new Promise(r => setTimeout(r, 0)); }
   }
 
@@ -327,7 +328,7 @@ export async function buildWorld(G, progress = () => {}) {
     const far = new THREE.Mesh(mergeGeometries(geos), mats.glass); scene.add(far); world.far = far; if (world.farTrim) { const m = new THREE.Mesh(mergeGeometries(world.farTrim), mats.trim); scene.add(m); } }
 
   // ---- queries
-  world.districtAt = (x, z) => { if (x > X1 + 8) return 'beach'; const bx = Math.floor((x - X0) / P), bz = Math.floor((z - Z0) / P); if (bx < 0 || bz < 0 || bx >= NBX || bz >= NBZ) return 'mid'; return districtOf(bx, bz); };
+  world.districtAt = (x, z) => { if (x > X1 + 8) return 'beach'; const bx = clamp(Math.floor((x - X0) / P), 0, NBX - 1), bz = clamp(Math.floor((z - Z0) / P), 0, NBZ - 1); return districtOf(bx, bz); };
   world.nameAt = (x, z) => {
     if (x > X1 + 8) return x > BEACH.sand ? 'South Beach' : 'Ocean Drive Promenade';
     const fi = (x - X0) / P, fj = (z - Z0) / P, ri = Math.round(fi), rj = Math.round(fj);
@@ -347,12 +348,14 @@ export async function buildWorld(G, progress = () => {}) {
     world.circles.query(x - r - 0.6, z - r - 0.6, x + r + 0.6, z + r + 0.6, c => { const dx = x - c.x, dz = z - c.z, rr = r + c.r, d2 = dx * dx + dz * dz; if (d2 >= rr * rr) return; const d = Math.sqrt(d2) || 1e-4, dep = rr - d; if (dep > best) { best = dep; out.nx = dx / d; out.nz = dz / d; out.depth = dep; out.h = 3; } });
     // map edges
     if (x - r < BOUNDS.x0) { const dep = BOUNDS.x0 - (x - r); if (dep > best) { best = dep; out.nx = 1; out.nz = 0; out.depth = dep; out.h = 99; } }
-    if (x + r > BOUNDS.x1) { const dep = x + r - BOUNDS.x1; if (dep > best) { best = dep; out.nx = -1; out.nz = 0; out.depth = dep; out.h = 99; } }
+    const onPier = Math.abs(z - PIER.z) < PIER.hw + 1 && x > X1 + 20;
+    if (onPier) { const rail = PIER.hw - 0.2; if (z - r < PIER.z - rail && x > PIER.x0) { const dep = PIER.z - rail - (z - r); if (dep > best) { best = dep; out.nx = 0; out.nz = 1; out.depth = dep; out.h = 1; } } if (z + r > PIER.z + rail && x > PIER.x0) { const dep = z + r - (PIER.z + rail); if (dep > best) { best = dep; out.nx = 0; out.nz = -1; out.depth = dep; out.h = 1; } } if (x + r > PIER.x1 - 1) { const dep = x + r - (PIER.x1 - 1); if (dep > best) { best = dep; out.nx = -1; out.nz = 0; out.depth = dep; out.h = 1; } } }
+    else if (x + r > BOUNDS.x1) { const dep = x + r - BOUNDS.x1; if (dep > best) { best = dep; out.nx = -1; out.nz = 0; out.depth = dep; out.h = 99; } }
     if (z - r < BOUNDS.z0) { const dep = BOUNDS.z0 - (z - r); if (dep > best) { best = dep; out.nx = 0; out.nz = 1; out.depth = dep; out.h = 99; } }
     if (z + r > BOUNDS.z1) { const dep = z + r - BOUNDS.z1; if (dep > best) { best = dep; out.nx = 0; out.nz = -1; out.depth = dep; out.h = 99; } }
     return best > 0;
   };
-  world.rayHitsBuilding = (ox, oz, dx, dz, maxD) => { let best = Infinity; world.colliders.query(Math.min(ox, ox + dx * maxD) - 1, Math.min(oz, oz + dz * maxD) - 1, Math.max(ox, ox + dx * maxD) + 1, Math.max(oz, oz + dz * maxD) + 1, b => { let t0 = 0, t1 = maxD; for (const [o, d, lo, hi] of [[ox, dx, b.x0, b.x1], [oz, dz, b.z0, b.z1]]) { if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return; } else { let a = (lo - o) / d, c = (hi - o) / d; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) return; } } if (t0 < best) best = t0; }); return best; };
+  world.rayHitsBuilding = (ox, oz, dx, dz, maxD, oy = 0, dy = 0) => { let best = Infinity; world.colliders.query(Math.min(ox, ox + dx * maxD) - 1, Math.min(oz, oz + dz * maxD) - 1, Math.max(ox, ox + dx * maxD) + 1, Math.max(oz, oz + dz * maxD) + 1, b => { let t0 = 0, t1 = maxD; for (const [o, d, lo, hi] of [[ox, dx, b.x0, b.x1], [oz, dz, b.z0, b.z1]]) { if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return; } else { let a = (lo - o) / d, c = (hi - o) / d; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) return; } } if (oy + dy * t0 > b.h) return; if (t0 < best) best = t0; }); return best; };
 
   // ---- per-frame world update: chunk visibility, signals, night scaling
   let visT = 0;
@@ -364,7 +367,7 @@ export async function buildWorld(G, progress = () => {}) {
     for (let k = 0; k < world.signals.length; k++) { const s = world.signals[k]; for (let ax = 0; ax < 2; ax++) { const st = world.signalState(s.i, s.j, ax, t); if (world.sigCache[k * 2 + ax] === st) continue; world.sigCache[k * 2 + ax] = st; for (let a = 0; a < 4; a++) { const axisOfApproach = a < 2 ? 0 : 1; if (axisOfApproach !== ax) continue; const base = (k * 4 + a) * 3; for (let l = 0; l < 3; l++) { const on = (l === 0 && st === 0) || (l === 1 && st === 1) || (l === 2 && st === 2); world.sigLamp.setColorAt(base + l, tmpC.set(on ? (l === 0 ? '#ff2020' : l === 1 ? '#ffc020' : '#20ff60') : '#1a0a0a').multiplyScalar(on ? 3 : 1)); } } world.sigLamp.instanceColor.needsUpdate = true; } }
     // night scaling of emissive things
     const em = 0.05 + 1.15 * night; for (const k of ['deco', 'mid', 'glass', 'ind', 'art']) mats[k].emissiveIntensity = em;
-    mats.trim.color.setScalar(0.35 + 2.0 * night); mats.sign.opacity = 0.25 + 0.75 * night; mats.sign.color.setScalar(0.3 + 1.7 * night); mats.lampHead.color.copy(col('#ffd9a0', 0.2 + 4 * night)); mats.red.color.copy(col('#ff2a2a', 2 + 3 * night));
+    mats.trim.color.setScalar(0.3 + 1.7 * night); mats.shop.color.setScalar(0.1 + 0.85 * night); mats.sign.opacity = 0.25 + 0.75 * night; mats.sign.color.setScalar(0.3 + 1.7 * night); mats.lampHead.color.copy(col('#ffd9a0', 0.2 + 4 * night)); mats.red.color.copy(col('#ff2a2a', 2 + 3 * night));
   };
 
   // ---- pre-rendered city map (minimap + pause map)
