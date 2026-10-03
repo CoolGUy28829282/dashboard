@@ -41,7 +41,7 @@ Fonts (Orbitron, Inter) load from Google Fonts and fall back to system fonts off
 | Switch defender / call for ball | Q / G | LB / L1 |
 | Steal (swipe) | R | X / □ on defence |
 | Play calls 1–5 | 1–5 | D-pad (plays 1–4) |
-| Camera cycle (2K Camera, 2K Legacy / High, Broadcast Stadium, Broadcast Low, Drive, Dynamic) | Tab | View / Share |
+| Camera cycle (2K Camera, 2K Legacy / High, Broadcast Stadium, Broadcast Low, Drive, Behind Offense, Dynamic) | Tab | View / Share |
 | Pause | Esc | Menu / Options |
 | Debug overlay | F3 | – |
 | Replay: skip / slow-mo speed / orbit | Space / O / drag | A |
