@@ -5,17 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Neon Drive 3D</title>
 <style>
-  :root{--c:#6fe6ff;--m:#ff4fa8}
+  :root{--c:#6fe6ff;--m:#ff4fa8;--hs:1}
   html,body{margin:0;height:100%;background:#0a0614;overflow:hidden;touch-action:none;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff;user-select:none}
   canvas{display:block;width:100vw;height:100vh}
-  .hud{position:fixed;pointer-events:none;opacity:0;transition:opacity .5s}
-  body.playing .hud{opacity:1}
+  .hud{position:fixed;pointer-events:none;opacity:0;transition:opacity .5s;zoom:var(--hs)}
+  body.playing .hud{opacity:1} body.nohud .hud{opacity:0!important} body.nomap #map{display:none}
   #tl{top:20px;left:24px}
   #tl small,#speedbox small{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--c);opacity:.85}
   #tl b{font:600 30px/1.1 ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;text-shadow:0 0 12px rgba(111,230,255,.5)}
   #tr{top:20px;right:24px;text-align:right}
   #tr small{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--m)}
   #tr b{font:600 24px ui-monospace,Menlo,Consolas,monospace}
+  #map{position:fixed;left:24px;bottom:78px;width:170px;height:170px;border-radius:12px;background:rgba(8,5,20,.45);border:1px solid rgba(111,230,255,.25);backdrop-filter:blur(4px);zoom:var(--hs);opacity:0;transition:opacity .5s;pointer-events:none}
+  body.playing #map{opacity:1} body.nohud #map{opacity:0}
   #speedbox{right:28px;bottom:26px;text-align:right}
   #speed{font:300 92px/0.9 ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(111,230,255,.55)}
   #speedbox .row{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:6px}
@@ -30,27 +32,59 @@
   .toast.bad{color:#ff5a6e}.toast.gold{color:#ffd45a}.toast.go{font-size:46px}
   @keyframes t{0%{opacity:0;transform:scale(.7)}12%{opacity:1;transform:scale(1.08)}80%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
   #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;mix-blend-mode:difference}#flash.on{opacity:1}
-  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
-    background:radial-gradient(ellipse at 50% 60%,rgba(10,6,20,.15),rgba(5,2,12,.7));transition:opacity .6s}
-  #title.hide{opacity:0;pointer-events:none}
-  #title h1{margin:0;font:800 clamp(44px,9vw,120px)/1 system-ui,sans-serif;letter-spacing:.06em;font-style:italic;
-    background:linear-gradient(180deg,#fff 10%,#ffb0dc 55%,#6fe6ff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(255,79,168,.55))}
+  #title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:radial-gradient(ellipse at 50% 60%,rgba(10,6,20,.15),rgba(5,2,12,.7));transition:opacity .6s;pointer-events:none}
+  #title.hide{opacity:0}
+  #title h1{margin:0;font:800 clamp(44px,9vw,120px)/1 system-ui,sans-serif;letter-spacing:.06em;font-style:italic;background:linear-gradient(180deg,#fff 10%,#ffb0dc 55%,#6fe6ff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(255,79,168,.55))}
   #title p{margin:6px 0 0;letter-spacing:.5em;color:var(--c);font-size:clamp(12px,1.6vw,20px)}
   #title .go{margin-top:6vh;font:600 20px ui-monospace,monospace;letter-spacing:.2em;animation:b 1.2s ease-in-out infinite}
   @keyframes b{50%{opacity:.35}}
-  #title .keys{margin-top:3vh;font:13px/1.9 ui-monospace,monospace;color:#cfc8ea;opacity:.85}
+  #title .keys{margin-top:3vh;font:13px/1.9 ui-monospace,monospace;color:#cfc8ea;opacity:.85;padding:0 16px}
   #best{margin-top:10px;font:13px ui-monospace,monospace;color:var(--m)}
-  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0614;letter-spacing:.4em;color:var(--c);font:14px ui-monospace,monospace;transition:opacity .4s}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0614;letter-spacing:.4em;color:var(--c);font:14px ui-monospace,monospace;transition:opacity .4s;z-index:50}
   body.ready #load{opacity:0;pointer-events:none}
+  /* customization panel */
+  #gear{} #gearbtn{}
+  #gear.btn,button#gear{position:fixed;left:20px;bottom:20px;z-index:20;font:600 13px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(14,9,30,.7);border:1px solid rgba(111,230,255,.45);border-radius:999px;padding:10px 16px;cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 0 18px rgba(111,230,255,.25)}
+  button#gear:hover{background:rgba(111,230,255,.2)}
+  #panel{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);z-index:30;display:flex;flex-direction:column;background:rgba(10,6,22,.88);backdrop-filter:blur(14px);border-left:1px solid rgba(111,230,255,.3);transform:translateX(105%);transition:transform .25s ease;font-size:13px}
+  #panel.open{transform:none}
+  #panel header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+  #panel header b{letter-spacing:.2em;text-transform:uppercase;color:var(--c);font-size:12px}
+  #panel .x{background:none;border:0;color:#fff;font-size:22px;cursor:pointer}
+  #panel .sub{padding:0 16px 8px;color:#a99fc8;font-size:11px}
+  #panel .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px 10px;border-bottom:1px solid rgba(255,255,255,.08)}
+  #panel .tab{background:rgba(255,255,255,.06);border:1px solid transparent;color:#cfc8ea;border-radius:8px;padding:6px 10px;font:12px system-ui;cursor:pointer}
+  #panel .tab.on{background:rgba(111,230,255,.18);border-color:var(--c);color:#fff}
+  #panel .body{flex:1;overflow:auto;padding:8px 16px}
+  #panel .row{display:grid;grid-template-columns:1fr 150px 44px;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  #panel .row .name{color:#e6e0f6}
+  #panel .hint{display:block;font-style:normal;font-size:10px;color:#8e84ad}
+  #panel .row input[type=range]{grid-column:2;width:100%;accent-color:var(--c)}
+  #panel .row .val{font:11px ui-monospace,monospace;color:var(--c);text-align:right}
+  #panel .row select,#panel .row input[type=text],#panel .row input[type=number]{grid-column:2/4;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:6px;font:12px system-ui}
+  #panel .row select option{background:#150b2a}
+  #panel .row input[type=color]{grid-column:2;width:48px;height:28px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:none;cursor:pointer}
+  #panel .row input.sw{grid-column:2;width:18px;height:18px;accent-color:var(--c);justify-self:start}
+  #panel .row input[type=number]{grid-column:2}
+  #panel .btns{grid-column:2/4;display:flex;gap:6px;flex-wrap:wrap}
+  #panel .mini{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 9px;cursor:pointer;font:12px system-ui}
+  #panel .mini:hover{background:rgba(111,230,255,.25)}
+  #panel .foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
+  #panel .act{background:rgba(111,230,255,.12);border:1px solid rgba(111,230,255,.45);color:#fff;border-radius:8px;padding:7px 10px;cursor:pointer;font:12px system-ui}
+  #panel .act.warn{border-color:#ff5a6e;background:rgba(255,90,110,.12)}
+  #panel select.act{max-width:150px}
+  body.panel-open #title{opacity:0}
+  @media (max-width:640px){#panel .row{grid-template-columns:1fr 120px 36px}#map{display:none}}
 </style>
 </head>
 <body>
 <div class="hud" id="tl"><small>Score</small><b id="score">000000</b></div>
 <div class="hud" id="tr"><small>Time</small><b id="time">00:00</b></div>
+<canvas id="map" width="170" height="170"></canvas>
 <div class="hud" id="speedbox">
   <div id="rpm"></div>
   <div class="row"><span id="gear">N</span><span id="speed">0</span></div>
-  <small style="margin-top:2px">km/h</small>
+  <small id="unit" style="margin-top:2px">km/h</small>
   <small style="margin:10px 0 4px">Nitro</small><div id="nitrobar"><div id="nitro"></div></div>
 </div>
 <div id="toasts"></div>
@@ -58,9 +92,15 @@
 <div id="title">
   <h1>NEON DRIVE</h1><p>ネオンドライブ · 夜の街</p>
   <div class="go">PRESS ENTER OR TAP TO START</div>
-  <div class="keys">W / ↑ throttle · S / ↓ brake · A D / ← → steer · SPACE drift (charges nitro) · SHIFT boost<br>C camera · R rain · M mute — close calls and drifting fill the nitro bar</div>
+  <div class="keys">W/↑ throttle · S/↓ brake · A D/←→ steer · SPACE drift · SHIFT boost · C camera · R rain · T autopilot<br>H hide HUD · P pause · F2 screenshot · M mute · <b>TAB</b> customize everything</div>
   <div id="best"></div>
 </div>
+<button id="gear" type="button">⚙ Customize</button>
+<aside id="panel">
+  <header><b>Customize</b><button class="x" type="button" aria-label="Close">×</button></header>
+  <div class="sub">Changes apply instantly and are saved in this browser. Tab or Esc toggles this panel.</div>
+  <nav class="tabs"></nav><div class="body"></div><div class="foot"></div>
+</aside>
 <div id="load">LOADING CITY…</div>
 __INLINE__
 </body>
