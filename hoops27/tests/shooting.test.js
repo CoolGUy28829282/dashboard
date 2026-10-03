@@ -137,3 +137,12 @@ describe('forced make flag', () => {
     expect(makeProbability({ type: 'three', rating: 50, distance: 7, grade: 'excellent', contest: 0 }).forced).toBe(false);
   });
 });
+
+import { capGrade, pressureLabel } from '../src/gameplay/actions.js';
+describe('defender pressure', () => {
+  it('open shooters can green; contested cap at Excellent; smothered cap at Good', () => {
+    expect(capGrade('perfect', 0.1)).toBe('perfect'); expect(capGrade('perfect', 0.5)).toBe('excellent'); expect(capGrade('perfect', 0.8)).toBe('good'); expect(capGrade('excellent', 0.8)).toBe('good');
+    expect(capGrade('early', 0.9)).toBe('early'); expect(capGrade('wayoff', 0.9)).toBe('wayoff');
+  });
+  it('labels the pressure tiers', () => { expect([0, 0.3, 0.5, 0.9].map(pressureLabel)).toEqual(['OPEN', 'TIGHT', 'CONTESTED', 'SMOTHERED']); });
+});

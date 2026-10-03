@@ -1,7 +1,7 @@
 // All menu screens: main carousel, Play Now flow, Ranked flow, settings, loading and post-game.
 import { h, clear, $, seg, toggle, toast } from './dom.js';
 import { settingsPanel, confirmDialog } from './settings.js';
-import { boxScoreView, gameScore } from './boxscore.js';
+import { boxScoreView, gameScore, shotChart } from './boxscore.js';
 import { ARCHETYPES, ATTRS, ATTR_LABEL, ARENAS, POSITIONS } from '../data/generator.js';
 import { BADGES, TIERS } from '../gameplay/badges.js';
 import { CAMERA_PRESETS, CAMERA_LABEL } from '../engine/camera.js';
@@ -10,6 +10,7 @@ import { RANKED, AI } from '../tuning.js';
 import { rankFromMmr, divisionProgress, rankLabel } from '../gameplay/elo.js';
 import * as R from '../modes/ranked.js';
 import { PLAY_BY_NAME } from '../data/plays.js';
+import { gymStats } from './hud.js';
 
 const DIFFS = [['rookie', 'Rookie'], ['pro', 'Pro'], ['allstar', 'All-Star'], ['superstar', 'Superstar'], ['hof', 'Hall of Fame']];
 const rankClass = (p) => `t-${R.rankOf(p).tier}`;
@@ -39,6 +40,7 @@ export class Screens {
     const app = this.app;
     const items = [
       { id: 'play', name: 'Play now', ic: '▶', main: true, desc: 'Exhibition: play the CPU, a friend on the same screen, or spectate a CPU game.', go: () => this.modeSelect() },
+      { id: 'gym', name: 'My Gym', ic: '◆', desc: 'Practice alone: work on your shot timing, pick spots, add a defender, shoot free throws.', go: () => this.gymSetup() },
       { id: 'ranked', name: 'Ranked', ic: '⚡', desc: 'Five placement matches, then Bronze to Legend over a 30-day season.', go: () => this.rankedHub() },
       { id: 'settings', name: 'Settings', ic: '⚙', desc: 'Audio, controls and rebinding, gameplay, video quality and accessibility.', go: () => this.settingsScreen() },
       { id: 'quit', name: 'Quit', ic: '⏻', desc: 'Leave the arena. Your profile is saved automatically.', go: () => this.quit() },
@@ -55,8 +57,39 @@ export class Screens {
   }
   /** Console-style top navigation shared by the top-level screens. */
   topNav(active) {
-    const tabs = [['play', 'Play now', '▶', () => this.modeSelect()], ['ranked', 'Ranked', '⚡', () => this.rankedHub()], ['settings', 'Settings', '⚙', () => this.settingsScreen()], ['main', 'Main menu', '⌂', () => this.main()]];
+    const tabs = [['play', 'Play now', '▶', () => this.modeSelect()], ['gym', 'My Gym', '◆', () => this.gymSetup()], ['ranked', 'Ranked', '⚡', () => this.rankedHub()], ['settings', 'Settings', '⚙', () => this.settingsScreen()], ['main', 'Main menu', '⌂', () => this.main()]];
     return h('div', { class: 'topnav' }, tabs.map(([id, label, ic, go]) => h('button', { class: `tn-item ${id === active ? 'on' : ''}`, onclick: () => { if (id !== active) go(); } }, h('span', { class: 'ic' }, ic), label)));
+  }
+  /** My Gym setup: choose a player, defender on/off and an arena, then walk in. */
+  gymSetup() {
+    const app = this.app, L = app.league; const f = this.gymCfg ??= { team: 0, player: null, defender: false, arena: null };
+    const list = h('div', { class: 'col scroll', style: { minWidth: '360px', flex: 1, minHeight: 0 } }), opts = h('div', { class: 'panel', style: { minWidth: '340px' } });
+    const team = L.teams[f.team]; if (!f.player || !team.roster.some((p) => p.id === f.player)) f.player = team.roster[0].id;
+    const draw = () => {
+      clear(list); const t = L.teams[f.team];
+      list.append(h('div', { class: 'row' }, h('div', { class: 'logo', html: t.logoSvg, style: { width: '44px', height: '44px' } }), h('select', { onchange: (e) => { f.team = +e.target.value; f.player = null; this.gymSetup(); } }, L.teams.map((x, i) => h('option', { value: i, selected: i === f.team }, `${x.city} ${x.name}`)))));
+      t.roster.forEach((p) => list.append(h('div', { class: `pcard ${f.player === p.id ? 'sel' : ''}`, style: { '--tc': t.colors.primary }, onclick: () => { f.player = p.id; draw(); app.audio.ui('tick'); } }, h('div', { class: 'pn' }, p.number), h('div', {}, h('div', { class: 'nm' }, `${p.name} · ${p.pos}`), h('div', { class: 'ar' }, `${ARCHETYPES[p.archetype].label} · 3PT ${p.attrs.three} · MID ${p.attrs.mid} · INS ${p.attrs.inside}`)), h('div', { class: 'ovr' }, p.ovr))));
+    };
+    draw();
+    const arenas = ARENAS.map((a) => [a.id, a.name]); f.arena = f.arena ?? team.arenaId;
+    opts.append(h('div', { class: 'display', style: { fontSize: '14px', marginBottom: '8px' } }, 'Session'),
+      h('div', { class: 'field' }, h('label', {}, 'Defender'), seg([[false, 'Alone'], [true, 'Guard me']], f.defender, (v) => { f.defender = v; })),
+      h('div', { class: 'field' }, h('label', {}, 'Arena'), seg(arenas, f.arena, (v) => { f.arena = v; })),
+      h('div', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.6, marginTop: '10px' } }, 'You start at the top of the key with the ball. After every make or miss the ball comes back to you. Pause (Esc) to jump to spots, toggle the defender, shoot free throws or reset your stats. No clock, no fouls, no fatigue.'));
+    this.show(h('div', { class: 'col', style: { height: '100%' } }, this.topNav('gym'), this.title('My Gym', 'Solo practice', () => this.main()), h('div', { class: 'row grow', style: { alignItems: 'stretch', minHeight: 0, gap: '16px' } }, list, h('div', { style: { alignSelf: 'flex-start' } }, opts)), h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Main menu'), h('div', { class: 'spacer' }), h('button', { class: 'btn primary', dataset: { default: '' }, onclick: () => this.gymStart() }, 'Enter gym'))));
+  }
+  gymStart() {
+    const f = this.gymCfg, L = this.app.league, other = (f.team + 1) % L.teams.length;
+    this.app.startGame({ teams: [f.team, other], humans: [{ team: 0, device: 'auto' }], rules: { difficulty: 'allstar', quarterMinutes: 5, fouls: false, fatigue: false, arenaId: f.arena }, mode: 'gym', gymDefender: f.defender, userPlayer: f.player, skipIntro: true });
+  }
+  gymSummary(session) {
+    const g = session.game, s = gymStats(g), pct = (m, a) => (a ? `${Math.round((m / a) * 100)}%` : '–');
+    const done = () => { session.dispose(); this.app.endSession(); this.main(); };
+    this.show(h('div', { class: 'col', style: { height: '100%' } }, this.title('My Gym', 'Session summary'),
+      h('div', { class: 'panel', style: { alignSelf: 'flex-start', minWidth: '520px' } }, h('div', { class: 'gym-big' }, `${s.fgm}/${s.fga}`, h('small', {}, `${pct(s.fgm, s.fga)} FG`)),
+        h('div', { class: 'stat-grid', style: { marginTop: '10px' } }, [['3PT', `${s.tpm}/${s.tpa}`], ['Green releases', s.greens], ['Green %', pct(s.greens, s.fga)], ['Best streak', s.best], ['Avg timing', s.fga ? `${Math.round(s.avgOff)} ms` : '–'], ['Open FG', pct(s.openM, s.openA)], ['Contested FG', pct(s.contM, s.contA)], ['Shots', s.fga]].map(([k, v]) => h('div', {}, h('b', {}, v), h('small', {}, k))))),
+      h('div', { class: 'panel grow scroll', style: { marginTop: '12px', maxWidth: '640px' } }, h('div', { class: 'crumbs', style: { marginBottom: '8px' } }, 'Shot chart'), shotChart(g, 0)),
+      h('div', { class: 'footer-bar' }, h('button', { class: 'btn primary', dataset: { default: '', back: '' }, onclick: () => { session.dispose(); this.app.endSession(); this.gymSetup(); } }, 'Back to gym setup'), h('button', { class: 'btn', onclick: done }, 'Main menu'))));
   }
   quit() { confirmDialog(this.app, 'Quit HOOPS 27?', 'Your progress is saved automatically.', () => { this.show(h('div', { class: 'col', style: { alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center' } }, h('div', { class: 'display', style: { fontSize: '34px' } }, 'See you in the Neon Era'), h('button', { class: 'btn primary', onclick: () => this.main() }, 'Back to menu')), { nav: true }); try { window.close(); } catch { /* browsers may block */ } }, 'Quit'); }
   settingsScreen() { const app = this.app; this.show(h('div', { class: 'col', style: { height: '100%' } }, this.topNav('settings'), this.title('Settings', 'Preferences saved locally', () => this.main()), h('div', { class: 'panel grow', style: { overflow: 'auto' } }, settingsPanel(app, {})), h('div', { class: 'footer-bar' }, h('button', { class: 'btn', dataset: { back: '' }, onclick: () => this.main() }, '← Back')))); }

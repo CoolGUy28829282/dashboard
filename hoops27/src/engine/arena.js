@@ -64,6 +64,7 @@ export class Arena {
     this.accent = new THREE.Color(arena.accent); this.accent2 = new THREE.Color(arena.accent2);
     this.crowdExcite = 0; this.rimFlash = [0, 0]; this.rimColor = [new THREE.Color(), new THREE.Color()];
     this.buildLights(); this.buildCourt(opts.reflection ?? 0.6); this.buildHoops(); this.buildStands(opts.crowd ?? 1); this.buildBeams(); this.buildScoreboard(); this.buildRoof();
+    this.group.updateMatrixWorld(true); // stand colliders are raycast by the camera before the first render
     scene.background = new THREE.Color(COLORS.void); scene.fog = new THREE.FogExp2(0x05060d, 0.011);
   }
   buildLights() {
@@ -173,7 +174,7 @@ export class Arena {
   }
   buildRoof() {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(9, 0.12, 8, 64), new THREE.MeshBasicMaterial({ color: this.accent2 })); ring.rotation.x = Math.PI / 2; ring.position.y = 17.5; this.group.add(ring); this.roofRing = ring;
-    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(13.5, 0.08, 8, 64), new THREE.MeshBasicMaterial({ color: this.accent })); ring2.rotation.x = Math.PI / 2; ring2.position.y = 17.2; this.group.add(ring2);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(13.5, 0.08, 8, 64), new THREE.MeshBasicMaterial({ color: this.accent })); ring2.rotation.x = Math.PI / 2; ring2.position.y = 17.2; this.group.add(ring2); this.ring2 = ring2;
   }
   buildScoreboard() {
     this.sbCanvas = document.createElement('canvas'); this.sbCanvas.width = 1024; this.sbCanvas.height = 384;
@@ -199,6 +200,8 @@ export class Arena {
     const i = side > 0 ? 1 : 0; this.rimFlash[i] = 1; this.rimColor[i].set(kind === 'green' ? COLORS.lime : kind === 3 ? COLORS.magenta : COLORS.cyan);
     this.netKick = this.netKick ?? [0, 0]; this.netKick[i] = 1;
   }
+  /** Sky-view cameras sit above the roof props, so hide them to keep the floor visible. */
+  setOverheadVisible(v) { for (const o of [this.scoreboard, this.roofRing, this.ring2, this.wallRing, ...this.beams]) if (o) o.visible = v; }
   update(dt, ball) {
     this.time += dt;
     this.crowd.material.uniforms.time.value = this.time; this.crowdExcite = Math.max(0, this.crowdExcite - dt * 0.18); this.crowd.material.uniforms.excite.value = this.crowdExcite;

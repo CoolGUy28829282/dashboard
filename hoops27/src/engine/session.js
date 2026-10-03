@@ -20,12 +20,14 @@ export class GameSession {
     this.app = app; this.cfg = cfg; this.bus = new EventBus(); this.pauseUsed = 0; this.paused = false; this.disposed = false; this.highlights = []; this.subQueue = []; this.running = false; this.fps = 60; this.frameAcc = 0; this.over = false; this.reelIndex = 0; this.skipIntro = false;
     const S = app.settings; const league = app.league;
     const teams = cfg.teams.map((i) => league.teams[i]);
-    const rules = { ...cfg.rules };
-    const settings = { difficulty: rules.difficulty ?? 'allstar', quarterMinutes: rules.quarterMinutes ?? 5, fouls: rules.fouls ?? true, fatigue: rules.fatigue ?? true, injuries: false, travel: S.gameplay.travel, threeSecond: S.gameplay.threeSecond, foulTolerance: S.gameplay.foulSensitivity, ranked: !!cfg.ranked, autoSubs: true, rubberBand: true, aimAssist: S.controls.aimAssist };
+    const rules = { ...cfg.rules }; const gym = cfg.mode === 'gym';
+    const settings = { difficulty: rules.difficulty ?? 'allstar', quarterMinutes: rules.quarterMinutes ?? 5, fouls: rules.fouls ?? true, fatigue: rules.fatigue ?? true, injuries: false, travel: S.gameplay.travel, threeSecond: S.gameplay.threeSecond, foulTolerance: S.gameplay.foulSensitivity, ranked: !!cfg.ranked, autoSubs: true, rubberBand: true, aimAssist: S.controls.aimAssist, gym, gymDefender: gym && !!cfg.gymDefender };
+    if (gym) { settings.fouls = false; settings.fatigue = false; settings.threeSecond = false; }
     this.humanTeam = cfg.humans[0]?.team ?? 0;
     // arena: the home (second-listed? first) team's arena unless the user picked one
     const arena = ARENAS.find((a) => a.id === (rules.arenaId ?? teams[0].arenaId)) ?? ARENAS[0];
     this.game = new Game({ teams, settings, bus: this.bus, physics: app.phys, humans: cfg.humans.map((hh) => ({ ...hh })), seed: (Math.random() * 1e9) | 0 });
+    if (gym && cfg.userPlayer) this.applyLineup(0, [cfg.userPlayer]);
     if (cfg.lineups) cfg.lineups.forEach((l, ti) => { if (l) this.applyLineup(ti, l); });
     if (cfg.strategy) cfg.strategy.forEach((st, ti) => { if (st) Object.assign(this.game.teams[ti].strategy, st); });
     this.viewSettings = { ...S, gameplay: { ...S.gameplay, shotMeter: cfg.ranked ? 'overhead' : S.gameplay.shotMeter } };
@@ -33,7 +35,7 @@ export class GameSession {
     this.view = new GameView(app.rend, this.game, { arena, settings: this.viewSettings, bus: this.bus });
     this.view.setCameraMode(S.gameplay.camera);
     this.hud = new Hud(app.uiRoot, { game: this.game, bus: this.bus, settings: S, audio: app.audio, callPlay: (i, t) => this.callPlay(i, t), requestTimeout: () => this.requestTimeout() });
-    this.commentary = new Commentary(this.bus, this.game, (t) => this.hud.say(t));
+    this.commentary = new Commentary(this.bus, this.game, (t) => this.hud.say(t)); if (gym) { this.commentary.dispose(); this.commentary = { update() {}, dispose() {} }; }
     this.wire();
   }
   applyLineup(ti, order) { const tm = this.game.teams[ti]; const players = order.map((id) => tm.players.find((p) => p.id === id)).filter(Boolean); const rest = tm.players.filter((p) => !players.includes(p)); const all = [...players, ...rest]; tm.court.forEach((p) => { p.onCourt = false; }); tm.court = all.slice(0, 5); tm.bench = all.slice(5); tm.court.forEach((p) => { p.onCourt = true; }); this.game.refreshOn(); }
@@ -68,7 +70,7 @@ export class GameSession {
   saveHighlight(label) { if (this.highlights.length >= 10) this.highlights.shift(); setTimeout(() => { if (this.disposed) return; const clip = this.view.buffer.clip(4); if (clip.length > 30) this.highlights.push({ label, clip, score: [...this.game.score], q: this.game.quarter }); }, 900); }
   /* ---------------------------------------------------------------- lifecycle */
   async begin() {
-    const { app, game } = this; app.input.attach(game, this.view); app.audio.ensure(); app.audio.startMusic();
+    const { app, game } = this; app.input.attach(game, this.view, this.bus); app.audio.ensure(); app.audio.startMusic();
     if (this.cfg.ranked) localStorage.setItem('hoops27.pendingRanked', JSON.stringify({ opp: this.cfg.ranked.opp, at: Date.now() }));
     game.start(); game.hold = true; this.running = true; this.last = performance.now(); this.acc = 0;
     this.startLoop();
@@ -158,7 +160,18 @@ export class GameSession {
       this.app.nav.setRoot(ov); const auto = g.humans.length ? null : setTimeout(go, 6000);
     }, 900);
   }
-  forfeit(timeUp = false) { if (this.over) return; const team = this.humanTeam; this.game.forfeit(team); this.forfeited = timeUp ? 'pause' : 'forfeit'; }
+  /** My Gym: teleport to a practice spot. */
+  gymSpot(name) { this.game.gymSpot(name); this.hud.toast(name === 'ft' ? 'Free-throw practice: 3 attempts' : 'Moved to a new spot', 'cyan'); }
+  gymSetDefender(on) {
+    const g = this.game; g.settings.gymDefender = on; const side = g.dirOf(0), u = g.gymUser;
+    const cand = g.teams[1].court; cand.forEach((p) => { p.parked = true; });
+    if (on) { const d = u.guardedBy ?? cand[0]; d.parked = false; d.pos = { x: u.pos.x + side * -1.5 + (side > 0 ? 3 : -3), z: u.pos.z }; d.vel = { x: 0, z: 0 }; g.gymReturn(); }
+    this.hud.toast(on ? 'Defender on' : 'Defender off', 'cyan');
+  }
+  gymResetStats() { const g = this.game; g.shots.length = 0; g.gymUser.run = 0; g.gymUser.perfectChain = 0; this.hud.toast('Stats reset', 'cyan'); }
+  leaveGym() { if (this.over) return; this.over = true; this.app.onGymEnd(this); }
+  forfeit(timeUp = false) {
+    if (this.game.gym) return this.leaveGym(); if (this.over) return; const team = this.humanTeam; this.game.forfeit(team); this.forfeited = timeUp ? 'pause' : 'forfeit'; }
   /* ---------------------------------------------------------------- end */
   onFinal({ score, winner }) {
     if (this.finalSent) return; this.finalSent = true; this.over = true; const g = this.game;

@@ -41,13 +41,22 @@ Fonts (Orbitron, Inter) load from Google Fonts and fall back to system fonts off
 | Switch defender / call for ball | Q / G | LB / L1 |
 | Steal (swipe) | R | X / □ on defence |
 | Play calls 1–5 | 1–5 | D-pad (plays 1–4) |
-| Camera cycle | Tab | View / Share |
+| Camera cycle (2K Camera, 2K Legacy / High, Broadcast Stadium, Broadcast Low, Drive, Dynamic) | Tab | View / Share |
 | Pause | Esc | Menu / Options |
 | Debug overlay | F3 | – |
 | Replay: skip / slow-mo speed / orbit | Space / O / drag | A |
 
 **Player 2 (local versus, split keyboard):** IJKL move, Right Shift sprint, `.` shoot, `,` pass, `M` lob, `N` pump, `B` step-back, `/` steal, `O` switch.
 All keyboard and gamepad bindings can be remapped in Settings → Controls. Gamepad rumble fires on shots, rim hits, contact, fouls and perfect releases.
+
+## Modes
+
+- **Play now:** Quick play (vs CPU), Local versus, Spectate. **Ranked:** placements, MMR, 30-day season. 
+- **My Gym:** solo practice. Pick any player, optionally add a defender, jump to practice spots (corners, wings, top, elbow, block, rim) or shoot free throws. The ball always returns to you; stats track makes, 3PT, green releases and timing, and open vs contested FG%.
+
+## Defence and shot quality
+
+A defender in your face changes the shot, not just the percentage: the green window shrinks with pressure, and the best grade you can earn is capped by it (**Contested** caps at Excellent, **Smothered** caps at Good, so you cannot green a shot with a hand in your face). Get open with screens, hesitations, step-backs and by beating your man. Dunks need a clear lane (a rim protector removes them from the AI's options and lowers a forced dunk's success), and blocks are likelier on rim attempts.
 
 ## The shooting system (the part to read first)
 

@@ -123,6 +123,7 @@ export class GameView {
     // camera
     const target = { ball: bp, vel: R ? { x: 0, z: 0 } : g.ball.vel, attackSide: g.dirOf(g.poss?.team ?? 0), ctrl, phase: g.phase };
     this.rig.clutch = g.isClutch?.() ?? false; this.rig.update(dt, target); this.camSpeed = this.rig.speed;
+    const camMode = this.rig.mode === 'dynamic' ? this.rig.dynMode : this.rig.mode; this.arena.setOverheadVisible(camMode !== 'high');
     this.arena.update(dt, bp);
     this.sbT -= dt; if (this.sbT <= 0) { this.sbT = 0.2; this.drawBoard(); }
     this.R.render(dt, this.camSpeed);

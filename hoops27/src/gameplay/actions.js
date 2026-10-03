@@ -10,6 +10,15 @@ import { RIM_R, BALL_R, ballistic, arcTime } from '../physics/world.js';
 
 const G = 9.81;
 const rimOf = (side) => ({ x: hoopX(side), y: COURT.rimHeight, z: 0 });
+/** Defensive pressure tiers: a defender in your face shrinks the green window and removes Perfect/Excellent entirely. */
+export const PRESSURE = { contested: 0.45, smothered: 0.7 };
+export const pressureLabel = (c) => (c >= PRESSURE.smothered ? 'SMOTHERED' : c >= PRESSURE.contested ? 'CONTESTED' : c >= 0.2 ? 'TIGHT' : 'OPEN');
+/** Highest grade a release can earn under this much pressure. */
+export function capGrade(grade, contest) {
+  const rank = { wayoff: 0, late: 1, early: 1, good: 2, excellent: 3, perfect: 4 };
+  const cap = contest >= PRESSURE.smothered ? 'good' : contest >= PRESSURE.contested ? 'excellent' : 'perfect';
+  return rank[grade] > rank[cap] ? cap : grade;
+}
 const aiLevel = (g) => AI.levels[g.settings.difficulty] ?? AI.levels.allstar;
 
 /** Defence / offence helpers */
@@ -35,7 +44,7 @@ export function chooseShot(g, p, intent) {
   const forceDunk = intent.dunkMod;
   let variant;
   if (g.phase === 'ft') variant = 'ft';
-  else if (d < 2.6 && (forceDunk || (dunkRating(p) > 70 && a.vertical > 72 && (sp > 3.4 || d < 1.3) && (!pressed || a.vertical > 78) && d < 2.2))) {
+  else if (d < 2.6 && (forceDunk || (dunkRating(p) > 70 && a.vertical > 72 && (sp > 3.4 || d < 1.3) && (!pressed || a.vertical > 78) && d < 2.2 && !rimProtected(g, p, side)))) {
     variant = d < 1.3 && sp < 2 ? 'standdunk' : dunkRating(p) > 90 && Math.random() < 0.3 ? (Math.random() < 0.5 ? 'windmill' : 'tomahawk') : 'drivedunk';
   } else if (d < 2.4) variant = intent.putback ? 'putback' : sp > 4 ? ['euro', 'reverse', 'fingerroll', 'layup'][(Math.random() * 4) | 0] : 'layup';
   else if (d < 4.0 && sp > 3 && !isThree(p.pos, side)) variant = 'floater';
@@ -50,6 +59,12 @@ export function chooseShot(g, p, intent) {
   return variant;
 }
 
+/** A defender planted between the ball and the rim takes away the dunk lane (needs space to elevate). */
+export function rimProtected(g, p, side) {
+  const rx = hoopX(side);
+  for (const q of opp(g, p).court) { const dr = Math.hypot(q.pos.x - rx, q.pos.z); if (dr < 2.4 && dist2(q.pos, p.pos) < 2.0 && q.data.attrs.interiorD > 55) return true; }
+  return false;
+}
 export function nearestDefender(g, p, maxD = 99) {
   let best = null, bd = maxD;
   for (const q of opp(g, p).court) { const d = dist2(q.pos, p.pos); if (d < bd) { bd = d; best = q; } }
@@ -72,12 +87,13 @@ export function beginShot(g, p, intent) {
   const rimLike = v.type === 'layup' || v.type === 'dunk';
   const jumpH = (AIRTIME[v.type] ?? 0.35) * (v.type === 'dunk' ? 0.85 + a.vertical / 200 : 0.8 + a.vertical / 400) + (rimLike ? p.momentum * 0.1 : 0);
   // AI pre-samples a timing offset from a normal distribution (spec §8).
+  p.ai.pressure = shooterContest(g, p, { type: v.type, variant: variantKey, side }).level;
   const sd = lv.timingSd * 1.3 * (AI.timingSdByType[v.type] ?? 1) * (1.35 - rating / 110) * (1 + 0.35 * (p.ai.pressure ?? 0));
   const offsetMs = human ? null : gaussian(Math.random, 0, sd);
   p.action = {
     kind: v.type === 'ft' ? 'ft' : v.type === 'dunk' ? 'dunk' : v.type === 'layup' ? 'layup' : 'shoot', t: 0, dur: D * 2, D, hold: v.type !== 'layup' && v.type !== 'dunk' && v.type !== 'floater',
     variant: variantKey, type: v.type, rating, jumpH, dist, startPos: { ...p.pos }, startSpeed: sp, offDribble: sp > 2.2 && p.dribbling, offBalance: (v.type === 'fadeaway' ? false : sp > 4.8) || p.stumble > 0,
-    catchShoot: g.t - p.catchTime < 0.9 && sp < 3, released: false, plannedMs: offsetMs, human: !!human, side, momentum: p.momentum,
+    spaced: !(v.type === 'dunk' && rimProtected(g, p, side)), catchShoot: g.t - p.catchTime < 0.9 && sp < 3, released: false, plannedMs: offsetMs, human: !!human, side, momentum: p.momentum,
   };
   p.shotMeter = { t: 0, D, type: v.type, windowMs: 0 };
   p.dribbling = false;
@@ -110,7 +126,7 @@ export function updateShotAction(g, p, dt, intent) {
   } else { p.vel.x = 0; p.vel.z = 0; }
   // contest preview for the live HUD ring
   p.shotMeter.contest = shooterContest(g, p, a).level;
-  p.shotMeter.windowMs = shotWindow(g, p, a, p.shotMeter.contest);
+  p.shotMeter.windowMs = shotWindow(g, p, a, p.shotMeter.contest); p.shotMeter.pressure = pressureLabel(p.shotMeter.contest);
   if (!a.released) {
     let go = false;
     if (a.human) {
@@ -126,7 +142,9 @@ export function updateShotAction(g, p, dt, intent) {
 function shotWindow(g, p, a, contest) {
   const fatigue = g.settings.fatigue ? 1 - p.stamina / 100 : 0;
   const bonus = p.data.form.windowBonusMs + (p.perfectChain > 0 ? badge(p, 'greenMachine', 'windowMsAfterPerfect') : 0);
-  return windowWidthMs({ type: a.type, rating: a.rating, contest, fatigue, badgeBonus: bonus });
+  // spec formula, then extra squeeze from defender pressure: nobody greens a shot with a hand in their face
+  const w = windowWidthMs({ type: a.type, rating: a.rating, contest, fatigue, badgeBonus: bonus });
+  return a.type === 'ft' ? w : Math.max(14, w * (1 - 0.7 * contest * contest - 0.15 * contest));
 }
 
 /** Contest from the closest threatening defender at the release moment. */
@@ -164,7 +182,7 @@ export function releaseShot(g, p) {
   const { level: contest, defender } = shooterContest(g, p, a);
   const windowMs = shotWindow(g, p, a, contest);
   const offsetMs = (a.t - a.D) * 1000;
-  const grade = gradeOffset(offsetMs, windowMs);
+  const grade = a.type === 'ft' ? gradeOffset(offsetMs, windowMs) : capGrade(gradeOffset(offsetMs, windowMs), contest);
   const rawDist = a.type === 'ft' ? 4.57 : hoopDist(p.pos, side);
   const dist = a.type === 'three' || a.type === 'midrange' ? Math.max(0, rawDist - badge(p, 'limitless', 'idealRangeAdd')) : rawDist; // Limitless Range extends the ideal range
   const three = a.type !== 'ft' && isThree(p.pos, side);
@@ -184,13 +202,13 @@ export function releaseShot(g, p) {
   for (const m of g.teams[p.team].court) if (m !== p) pct += 0.004 * badge(m, 'floorGeneral', 'teamBoost'); // Floor General lifts teammates
   if (!a.human) pct += lv.accuracy + g.rubberBand(p.team);
   pct *= clutch;
-  if (a.type === 'dunk') pct = clamp(pct * (0.8 + 0.2 * p.momentum + 0.15), 0, 0.99);
+  if (a.type === 'dunk') pct = clamp(pct * (0.8 + 0.2 * p.momentum + 0.15) * (a.spaced ? 1 : 0.7), 0, 0.99);
   const [lo, hi] = SHOT.final; pct = clamp(pct, lo, hi);
   if (p.action) p.action.lastWindow = windowMs;
 
   const ev = {
     t: g.t, q: g.quarter, clock: g.clock, shooter: p.id, shooterName: p.name, team: p.team, type: a.type, variant: a.variant, distance: dist, three, contest,
-    offsetMs, grade, windowMs, makePct: pct, mods: mp.mods, made: false, x: p.pos.x, z: p.pos.z, side, human: a.human, assist: null, blocked: false, fouled: false,
+    offsetMs, grade, windowMs, pressure: pressureLabel(contest), makePct: pct, mods: mp.mods, made: false, x: p.pos.x, z: p.pos.z, side, human: a.human, assist: null, blocked: false, fouled: false,
   };
   p.perfectChain = grade === 'perfect' ? (p.perfectChain ?? 0) + 1 : 0;
   if (a.human) g.bus.emit('shotGrade', { player: p, grade, offsetMs, contest, windowMs, type: a.type });
@@ -206,7 +224,8 @@ export function releaseShot(g, p) {
   if (!isFT && defender && contest > 0.55) {
     const win = 0.16 + badge(defender, 'rimProtector', 'blockWindowMs') / 1000;
     const good = defender.y > 0.08 && Math.abs(g.t - defender.blockAt) <= win && dist2(defender.pos, p.pos) < 1.7;
-    if (good && Math.random() < blockChance(contest, true, defender.data.attrs.block + 10)) {
+    const rimTry = a.type === 'dunk' || a.type === 'layup'; const bc = blockChance(contest, true, defender.data.attrs.block + 10) * (rimTry ? 1.35 : 1) * (a.type === 'dunk' && !a.spaced ? 1.2 : 1);
+    if (good && Math.random() < Math.min(0.9, bc)) {
       ev.blocked = true; defender.stats.blk++;
       g.recordShot(ev, p);
       const dir = Math.atan2(p.pos.z - defender.pos.z, p.pos.x - defender.pos.x) + (Math.random() - 0.5) * 2.2;
@@ -460,6 +479,7 @@ export function postUp(g, p, dt, on) {
 
 /* ------------------------------------------------------------------ steals & blocks & charges */
 export function attemptSteal(g, d, handler, free = false) {
+  if (g.gym) return false; // practice: the defender contests but never takes the ball
   if (!handler.hasBall || (!free && d.cd.steal > 0)) return false;
   if (!free) d.cd.steal = 0.9;
   const dd = dist2(d.pos, handler.pos);
@@ -502,7 +522,7 @@ export function resolveLoose(g, dt) {
   const b = g.ball; const cands = [];
   if (b.pos.y > 3.9 && g.ball.fromShot && b.vel.y > -0.5 && b.vel.y > 0) return;
   for (const p of g.on) {
-    if (p.fouledOut || p.action?.kind === 'ft') continue;
+    if (p.fouledOut || p.action?.kind === 'ft' || p.parked || (g.gym && p !== g.gymUser)) continue;
     const dx = p.pos.x - b.pos.x, dz = p.pos.z - b.pos.z, d = Math.hypot(dx, dz);
     const hustle = 1 + badge(p, 'hustleReb', 'pursuitRadius');
     const r = (0.62 + (p.data.wingspanM - 1.9) * 0.4) * hustle;

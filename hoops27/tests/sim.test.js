@@ -44,3 +44,20 @@ describe('headless full-game simulation', () => {
     }
   }, 240000);
 });
+
+describe('My Gym', () => {
+  it('returns the ball to the solo user after makes and misses and never ends', async () => {
+    const league = generateLeague(); const phys = await BallPhysics.create(); const bus = new EventBus();
+    const g = new Game({ teams: [league.teams[0], league.teams[1]], settings: { gym: true, gymDefender: true, fouls: false, fatigue: false }, bus, physics: phys, humans: [{ team: 0, device: 'auto' }], seed: 4 });
+    g.start(); expect(g.gymUser.hasBall).toBe(true); expect(g.on.filter((p) => !p.parked).length).toBe(2);
+    let shots = 0; bus.on('shotRelease', () => shots++);
+    for (let k = 0; k < 6; k++) {
+      const u = g.gymUser; const i = g.humans[0].intent; i.shootPressed = true; i.shootHeld = true;
+      for (let t = 0; t < 40 && !u.action; t++) g.update(1 / 60);
+      i.shootPressed = false; for (let t = 0; t < 60; t++) g.update(1 / 60); i.shootHeld = false; i.shootReleased = true;
+      for (let t = 0; t < 60 * 9 && !(u.hasBall && !u.action); t++) { g.update(1 / 60); i.shootReleased = false; }
+      expect(u.hasBall, `shot ${k} ball did not return`).toBe(true);
+    }
+    expect(shots).toBeGreaterThanOrEqual(5); expect(g.phase).toBe('live'); expect(g.clock).toBe(g.qLen);
+  }, 60000);
+});

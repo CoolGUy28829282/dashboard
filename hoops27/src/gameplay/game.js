@@ -1,7 +1,7 @@
 // GameState manager: possession, clocks, ball states, rules engine, fouls, free throws, substitutions, quarters.
 import { RULES, LOOP, COURT, AI } from '../tuning.js';
 import { createRuntimePlayer, movePlayer, separate, blankStats, badge } from './movement.js';
-import { hoopX, hoopDist, dist2, HALF_L, HALF_W, ftSpot, inPaint, outOfBounds, clampCourt } from './court.js';
+import { hoopX, hoopDist, dist2, HALF_L, HALF_W, ftSpot, inPaint, outOfBounds, clampCourt, toWorld as toWorldPt } from './court.js';
 import * as A from './actions.js';
 import { BALL_R, RIM_R } from '../physics/world.js';
 import { AIController } from '../ai/controller.js';
@@ -17,7 +17,7 @@ const TICK = 1 / LOOP.logicHz;
 export class Game {
   constructor({ teams, settings = {}, bus, physics, humans = [], seed = 1 }) {
     this.bus = bus; this.phys = physics; this.rng = mulberry32(seed);
-    this.settings = { ...DEFAULT_SETTINGS, ...settings };
+    this.settings = { ...DEFAULT_SETTINGS, ...settings }; this.gym = !!settings.gym;
     if (this.settings.ranked) { this.settings.rubberBand = false; this.settings.fouls = true; this.settings.fatigue = true; this.settings.quarterMinutes = 5; }
     if (this.settings.difficulty === 'hof') this.settings.rubberBand = false;
     this.teams = teams.map((t, i) => this.makeTeam(t, i));
@@ -53,6 +53,7 @@ export class Game {
 
   /* ----------------------------------------------------------- setup */
   start() {
+    if (this.gym) return this.gymStart();
     // jump ball (spec §7); possession arrow starts with the loser
     const c0 = [...this.teams[0].court].sort((a, b) => b.height - a.height)[0], c1 = [...this.teams[1].court].sort((a, b) => b.height - a.height)[0];
     const s0 = c0.data.attrs.vertical + c0.height * 40 + this.rng() * 30, s1 = c1.data.attrs.vertical + c1.height * 40 + this.rng() * 30;
@@ -62,6 +63,43 @@ export class Game {
     this.ball.state = 'dead'; this.ball.pos = { x: 0, y: 1.2, z: 0 };
     this.assignControl();
     this.bus.emit('gameStart', {});
+  }
+  /* ----------------------------------------------------------- My Gym (solo practice) */
+  gymStart() {
+    const user = this.teams[0].court[0]; this.gymUser = user; this.phase = 'live'; this.clockOn = false;
+    const side = this.dirOf(0);
+    this.ball.state = 'dead';
+    user.pos = toWorldPt(side, 8.8, 0); user.face = side > 0 ? 0 : Math.PI;
+    this.giveBall(user, { quiet: true }); this.startPossession(0, { keepBall: true });
+    const guard = this.settings.gymDefender ? user.guardedBy : null; let i = 0;
+    for (const p of this.on) {
+      if (p === user || p === guard) { p.parked = false; continue; }
+      p.parked = true; const k = i++; p.pos = { x: -13 + (k % 5) * 2.6, z: (k < 5 ? -1 : 1) * (HALF_W + 2.6) }; p.vel = { x: 0, z: 0 }; p.face = k < 5 ? Math.PI / 2 : -Math.PI / 2;
+    }
+    if (guard) { guard.pos = { x: user.pos.x + side * 1.4, z: 0 }; guard.face = Math.atan2(0, -side); }
+    this.assignControl(); this.bus.emit('gymStart', {});
+  }
+  /** Ball returns to the user after a make, a long rebound, or when it leaves the floor area. */
+  gymReturn() {
+    const u = this.gymUser; if (!u || u.hasBall) return;
+    this.phys.setActive(false); this.ball.shot = null; this.ball.fromShot = null; this.ball.pass = null; u.action = null; u.y = 0; u.vy = 0;
+    this.giveBall(u, { quiet: true }); u.catchTime = this.t - 5; this.startPossession(0, { keepBall: true });
+    const d = this.on.find((p) => p.team === 1 && !p.parked); if (d) { const side = this.dirOf(0), tx = hoopX(side) - u.pos.x, tz = -u.pos.z, l = Math.hypot(tx, tz) || 1; d.pos = { x: u.pos.x + (tx / l) * 1.5, z: u.pos.z + (tz / l) * 1.5 }; d.vel = { x: 0, z: 0 }; d.action = null; d.y = 0; }
+  }
+  /** Teleport the user to a practice spot (attack-local metres from the baseline / lateral). */
+  gymSpot(name) {
+    const u = this.gymUser, side = this.dirOf(0);
+    const spots = { top: [9.2, 0], wingR: [6.8, 5.6], wingL: [6.8, -5.6], cornerR: [1.7, 6.5], cornerL: [1.7, -6.5], elbow: [5.8, 2.4], block: [2.6, 1.9], rim: [1.6, 0] };
+    if (name === 'ft') { this.gymResetAt = 0; this.phys.setActive(false); this.startFreeThrows(u, 3, 'practice'); return; }
+    const s = spots[name]; if (!s) return; this.gymResetAt = 0; this.phase = 'live'; this.ft = null;
+    u.action = null; u.hasBall = false; u.pos = toWorldPt(side, s[0], s[1]); u.vel = { x: 0, z: 0 }; u.face = Math.atan2(-u.pos.z, hoopX(side) - u.pos.x); u.y = 0; u.vy = 0;
+    this.ball.holder = null; this.gymReturn();
+    const d = this.on.find((p) => p.team === 1 && !p.parked); if (d) d.pos = { x: u.pos.x + Math.cos(u.face) * 1.5, z: u.pos.z + Math.sin(u.face) * 1.5 };
+  }
+  updateGymRules(dt) {
+    void dt; const b = this.ball, u = this.gymUser;
+    if (this.gymResetAt && this.t >= this.gymResetAt && !u.action) { this.gymResetAt = 0; this.gymReturn(); }
+    if (b.state === 'loose' && !this.gymResetAt && (b.looseT > 3.2 || outOfBounds(b.pos))) this.gymResetAt = this.t + 0.25;
   }
   layoutTip(winner) {
     const [c0, c1] = this.tipState.c;
@@ -200,6 +238,7 @@ export class Game {
     b.fromShot = null;
     if (ev.type === 'ft') { this.ftResolved(true); return; }
     // buzzer beater?
+    if (this.gym) { this.gymResetAt = this.t + 1.1; return; }
     const buzzer = this.clock <= 0.05 && this.clockOn === false;
     if (buzzer) this.bus.emit('buzzer', { player: p });
     if (sh.foul) { this.callFoul(sh.foulDef, p, 'shooting', { shooting: true, andOne: true, made: true, three: ev.three }); return; }
@@ -268,6 +307,7 @@ export class Game {
     const f = this.ft; if (!f || f.resolved) return; f.resolved = true; f.left--; if (made) f.made++;
     f.lastOpen = false;
     if (f.left > 0) { this.ftNext = this.t + 1.0; }
+    else if (this.gym) { this.ft = null; this.phase = 'live'; this.gymResetAt = this.t + 0.9; }
     else {
       // final attempt
       if (made) this.startDead('made', 1.6, () => { const p = f.shooter; if (f.reason === 'technical') return this.setupInbound(p.team, { x: 0, z: HALF_W + 0.8 }); this.setupInbound(1 - p.team, { x: 0, z: 0, baseline: f.side }); }, 'made');
@@ -275,6 +315,7 @@ export class Game {
     }
   }
   ftLastMiss() {
+    if (this.gym) { this.ft = null; this.phase = 'live'; this.gymResetAt = this.t + 1.6; return; }
     const f = this.ft; this.phase = 'live'; this.clockOn = false; this.ftReboundLive = true; this.ft = null;
     this.startPossession(1 - f.shooter.team, { keepBall: true }); this.poss.rebPending = true;
     this.ball.fromShot = { ev: f, team: f.shooter.team, type: 'ft' }; this.ball.shot = { ev: { team: f.shooter.team, type: 'ft', made: false }, p: f.shooter, scored: false, ftMiss: true };
@@ -466,6 +507,7 @@ export class Game {
   stepPlayers(dt) {
     const frozen = this.phase === 'timeout' || this.phase === 'tip';
     for (const p of this.on) {
+      if (p.parked) { p.vel.x = 0; p.vel.z = 0; p.action = null; p.intent = {}; continue; } // gym: spectators stand still off the court
       let intent;
       if (this.phase === 'tip') intent = {};
       else intent = this.intentFor(p, dt);
@@ -491,7 +533,7 @@ export class Game {
       if (this.phase === 'inbound') { if (i.passPressed || i.shootPressed) { const tgt = i.passTarget ?? A.bestTargetInDirection(this, p, i.mx ?? 0, i.mz ?? 0); if (tgt) A.startPass(this, p, tgt, i.passType ?? 'chest'); } return; }
       if (this.phase === 'ft') return;
       if (i.shootPressed && !p.action) { A.beginShot(this, p, i); return; }
-      if (i.passPressed && !p.action) { const tgt = i.passTarget ?? A.bestTargetInDirection(this, p, i.passAimX ?? i.mx ?? 0, i.passAimZ ?? i.mz ?? 0); if (tgt) { A.startPass(this, p, tgt, i.passType ?? 'chest'); i.passPressed = false; } return; }
+      if (i.passPressed && !p.action && !this.gym) { const tgt = i.passTarget ?? A.bestTargetInDirection(this, p, i.passAimX ?? i.mx ?? 0, i.passAimZ ?? i.mz ?? 0); if (tgt) { A.startPass(this, p, tgt, i.passType ?? 'chest'); i.passPressed = false; } return; }
       if (i.dribbleMove && !p.action) {
         if (this.settings.travel === 'sim' && p.gathered && p.pumped) { this.violation('double dribble', p.team); return; }
         A.dribbleMove(this, p, i.dribbleMove, i);
@@ -545,7 +587,8 @@ export class Game {
       for (const h of this.phys.drainHits()) this.bus.emit('ballHit', h);
       if (b.state === 'loose') this.checkPhysicalScore();
       if (b.state === 'loose' && this.phase === 'live') {
-        if (outOfBounds(b.pos) && b.pos.y < 6 && !(b.fromShot && b.pos.y > 2.8 && Math.abs(b.pos.x) < HALF_L + 0.3 && Math.abs(b.pos.z) < 1.2)) this.outOfBounds();
+        if (this.gym) A.resolveLoose(this, dt);
+        else if (outOfBounds(b.pos) && b.pos.y < 6 && !(b.fromShot && b.pos.y > 2.8 && Math.abs(b.pos.x) < HALF_L + 0.3 && Math.abs(b.pos.z) < 1.2)) this.outOfBounds();
         else A.resolveLoose(this, dt);
         // dead loose ball resting
         if (b.looseT > 4 && Math.hypot(b.vel.x, b.vel.z) < 0.2 && b.pos.y < 0.2) { const near = [...this.on].sort((a, c) => dist2(a.pos, b.pos) - dist2(c.pos, b.pos))[0]; near && this.giveBall(near); }
@@ -599,6 +642,7 @@ export class Game {
 
   /* ----------------------------------------------------------- rules (clock, violations, charges, 3-second) */
   updateRules(dt) {
+    if (this.gym) return this.updateGymRules(dt);
     const b = this.ball, poss = this.poss;
     // clocks
     if (this.clockOn && this.phase === 'live') {

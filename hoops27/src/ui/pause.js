@@ -4,7 +4,7 @@ import { settingsPanel, confirmDialog } from './settings.js';
 import { boxScoreView } from './boxscore.js';
 import { HUD_PLAYS } from './hud.js';
 import { PLAYS, DEFENSE_SCHEMES } from '../data/plays.js';
-import { CAMERA_PRESETS, CAMERA_LABEL } from '../engine/camera.js';
+import { CAMERA_PRESETS, CAMERA_LABEL, CAMERA_INFO } from '../engine/camera.js';
 import { ARCHETYPES } from '../data/generator.js';
 import { ACTION_LABEL, DEFAULT_KEYS, padLabels } from '../engine/input.js';
 
@@ -20,12 +20,27 @@ export class PauseMenu {
     this.app.nav.setRoot(this.ov);
   }
   home() {
+    if (this.s.game.gym) return this.gymHome();
     const s = this.s, ranked = s.cfg.ranked; const left = ranked ? Math.max(0, 30 - s.pauseUsed).toFixed(0) : null;
     const items = [['Resume', () => this.resume(), true], ['Substitutions', () => this.subs()], ['Play calls', () => this.plays()], ['Strategy sliders', () => this.strategy()], ['Stats', () => this.stats()], ['Camera', () => this.camera()], ['Controls', () => this.controls()], ['Settings', () => this.settings()], ['Forfeit', () => confirmDialog(this.app, 'Forfeit game?', ranked ? 'A forfeit counts as a loss in Ranked.' : 'The game ends and you leave the court.', () => { this.close(); s.forfeit(); }, 'Forfeit'), false, 'danger']];
     clear(this.panel); this.panel.append(h('div', { class: 'title-row' }, h('h2', {}, 'Paused'), h('span', { class: 'crumbs' }, `${this.g.teams[0].data.abbr} ${this.g.score[0]} – ${this.g.score[1]} ${this.g.teams[1].data.abbr}`)),
       ranked ? h('div', { class: 'pill', style: { color: s.pauseUsed > 20 ? 'var(--danger)' : 'var(--amber)', marginBottom: '10px' } }, `Ranked pause budget: ${left}s left — forfeits at 0`) : null,
       h('div', { class: 'menu-list' }, items.map(([label, fn, def, cls]) => h('button', { class: `btn ${def ? 'primary' : ''} ${cls ?? ''}`, dataset: def ? { default: '', back: '' } : {}, onclick: fn }, label))));
     this.app.nav.setRoot(this.ov);
+  }
+  gymHome() {
+    const s = this.s; clear(this.panel); this.panel.append(h('div', { class: 'title-row' }, h('h2', {}, 'My Gym'), h('span', { class: 'crumbs' }, 'Paused')),
+      h('div', { class: 'menu-list' }, [['Resume', () => this.resume(), true], ['Practice options', () => this.gymOptions()], ['Camera', () => this.camera()], ['Controls', () => this.controls()], ['Settings', () => this.settings()]].map(([l, fn, d]) => h('button', { class: `btn ${d ? 'primary' : ''}`, dataset: d ? { default: '', back: '' } : {}, onclick: fn }, l)), h('button', { class: 'btn danger', onclick: () => { this.close(); s.leaveGym(); } }, 'Leave gym')));
+    this.app.nav.setRoot(this.ov);
+  }
+  gymOptions() {
+    const s = this.s, g = s.game; const wrap = h('div', { class: 'col', style: { minWidth: '360px' } });
+    wrap.append(h('div', { class: 'field' }, h('label', {}, 'Defender'), seg([[false, 'Alone'], [true, 'Guard me']], !!g.settings.gymDefender, (v) => s.gymSetDefender(v))));
+    wrap.append(h('div', { class: 'display', style: { fontSize: '12px', letterSpacing: '.14em' } }, 'Practice spots'));
+    const spots = [['cornerL', 'Left corner'], ['wingL', 'Left wing'], ['top', 'Top of key'], ['wingR', 'Right wing'], ['cornerR', 'Right corner'], ['elbow', 'Elbow'], ['block', 'Block'], ['rim', 'Under the rim'], ['ft', 'Free throws']];
+    wrap.append(h('div', { class: 'spotgrid' }, spots.map(([k, l]) => h('button', { class: 'btn sm', onclick: () => { this.close(); s.gymSpot(k); s.resume(); } }, l))));
+    wrap.append(h('button', { class: 'btn sm', onclick: () => s.gymResetStats() }, 'Reset stats'));
+    this.mount(wrap, 'Practice options');
   }
   resume() { this.close(); this.s.resume(); }
   close() { this.ov.remove(); this.app.nav.setRoot(null); }
@@ -62,6 +77,7 @@ export class PauseMenu {
   camera() {
     const rig = this.s.view.rig; const wrap = h('div', { class: 'menu-list' });
     CAMERA_PRESETS.forEach((m) => wrap.append(h('button', { class: `btn ${rig.mode === m ? 'primary' : ''}`, onclick: () => { rig.setMode(m); this.app.settings.gameplay.camera = m; this.app.saveSettings(); this.camera(); } }, CAMERA_LABEL[m] + (rig.mode === m ? '  ✓' : ''))));
+    wrap.append(h('div', { class: 'muted', style: { fontSize: '12px', maxWidth: '320px', lineHeight: 1.5, marginTop: '4px' } }, CAMERA_INFO[rig.mode] ?? ''));
     this.mount(wrap, 'Camera');
   }
   controls() {

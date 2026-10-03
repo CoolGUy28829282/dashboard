@@ -347,6 +347,8 @@ export class AIController {
       target = { x: ref.x + toRim.x * gap, z: ref.z + toRim.z * gap };
       if (press && !g.poss.crossed) { target = { x: ref.x + toRim.x * 0.9, z: ref.z + toRim.z * 0.9 }; }
       I.handsUp = dist2(p.pos, ref) < 2.6;
+      // closeout: sprint at a catching shooter and get hands up before he can set his feet
+      if (dist2(p.pos, holder.pos) > 1.3 && dist2(p.pos, holder.pos) < 7 && g.t - holder.catchTime < 1.2) { I.sprint = true; I.handsUp = true; }
       // on-ball steal attempt
       if (dist2(p.pos, ref) < 1.3 && p.cd.steal <= 0 && Math.random() < dt * 0.22 * L.steal * (0.35 + 0.6 * p.data.attrs.steal / 99) * (0.5 + pressure)) I.stealPressed = true;
       if (g.teams[p.team].intentionalFoul && dist2(p.pos, ref) < 1.4 && !holder.action && Math.random() < 0.08) { g.callFoul(p, holder, 'personal', { intentional: true }); return I; }

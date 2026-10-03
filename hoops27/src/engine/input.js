@@ -20,7 +20,7 @@ const DIAG = new Set([1, 3, 5, 7]);
 
 export class Input {
   constructor(settings, bus) {
-    this.s = settings; this.bus = bus; this.keys = new Set(); this.pressedOnce = new Set(); this.game = null; this.view = null; this.mouseDown = false;
+    this.s = settings; this.bus = bus; this.appBus = bus; this.keys = new Set(); this.pressedOnce = new Set(); this.game = null; this.view = null; this.mouseDown = false;
     this.pads = []; this.padPrev = new Map(); this.listeners = []; this.lastPadId = ''; this.rebinding = null; this.menuHandlers = new Set(); this.humanState = new Map();
     this.on(window, 'keydown', (e) => this.keydown(e)); this.on(window, 'keyup', (e) => this.keyup(e));
     this.on(window, 'mousedown', (e) => { if (e.button === 0 && !e.target.closest?.('button, .panel, input')) { this.mouseDown = true; this.mouseEdge = 'down'; } });
@@ -177,7 +177,8 @@ export class Input {
     if (bp(0) && !prev[0]) for (const f of this.menuHandlers) f('nav', 'ok'); if (bp(1) && !prev[1]) for (const f of this.menuHandlers) f('nav', 'back');
     this.padPrev.set(pad.index, pad.buttons.map((b) => b.pressed));
   }
-  attach(game, view) { this.game = game; this.view = view; }
-  detach() { this.game = null; this.view = null; }
+  /** Gameplay events (pause, camera, play calls...) go to the session's own bus while a match is attached. */
+  attach(game, view, bus) { this.game = game; this.view = view; if (bus) this.bus = bus; }
+  detach() { this.game = null; this.view = null; this.bus = this.appBus; }
 }
 void clearEdges;

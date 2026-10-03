@@ -190,3 +190,22 @@ input[type=range] { background: rgba(255,255,255,.25); height: 3px; } input[type
 .tc:hover, .tc.focus { background: var(--sel); color: var(--sel-text); flex-basis: 260px; outline: none; } .tc:hover .tc-desc, .tc.focus .tc-desc { color: #3b4350; } .tc:hover::before, .tc.focus::before { background: rgba(0,0,0,.05); }
 .tc.alt { background: linear-gradient(155deg, #5a1730, #2b0b17); }
 .mm-brand .logo { white-space: nowrap; font-size: 48px; } .mm-item .soon { white-space: nowrap; } .mm-item { white-space: nowrap; }
+
+/* HUD v3: slim, flat, modern */
+#sb { min-width: 520px; background: rgba(8,10,16,.78); backdrop-filter: blur(14px); border: 0; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.4); overflow: hidden; }
+#sb .team { padding: 6px 18px; } #sb .abbr { font-size: 18px; letter-spacing: .08em; } #sb .score { font-size: 40px; font-weight: 700; }
+#sb .mid { border-color: rgba(255,255,255,.08); } #sb .clock { font-size: 28px; font-weight: 700; } #sb .per { color: var(--muted); letter-spacing: .24em; } #sb .sc { color: #ffcf5a; border-color: rgba(255,255,255,.08); font-size: 22px; }
+#sb .sub { font-size: 10px; letter-spacing: .12em; } .pip { border-radius: 50%; transform: none; width: 6px; height: 6px; background: #fff; } .pip.off { background: rgba(255,255,255,.2); } .bonus { color: #ffcf5a; }
+#pcard { left: 24px; bottom: 24px; min-width: 300px; padding: 12px 16px; background: rgba(8,10,16,.78); } #pcard .nm { font-size: 20px; letter-spacing: .04em; } #pcard .ar { font-size: 12px; }
+.space { margin-left: 8px; padding: 2px 10px; font-family: var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: .14em; border-radius: 3px; } .space-OPEN { background: rgba(80,255,120,.2); color: #6dff8f; } .space-TIGHT { background: rgba(255,220,90,.2); color: #ffd85a; } .space-CONTESTED { background: rgba(255,150,60,.22); color: #ff9a3c; } .space-SMOTHERED { background: rgba(255,60,80,.25); color: #ff5468; }
+#ticker { background: rgba(8,10,16,.72); padding: 9px 18px; border-radius: 6px; text-shadow: none; font-size: 14px; bottom: 20px; }
+.popup { font-weight: 800; font-size: 72px; letter-spacing: .06em; text-shadow: 0 4px 18px rgba(0,0,0,.55); } .popup small { font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+.route-ui .btn { background: rgba(8,10,16,.72); font-size: 12px; padding: 6px 14px; letter-spacing: .08em; } #replayTag { border-radius: 4px; }
+.overlay { background: rgba(5,6,13,.66); backdrop-filter: blur(8px); } .overlay > .panel { border-radius: 8px; }
+.menu-list { min-width: 320px; } .menu-list .btn { text-align: left; font-size: 17px; padding: 13px 20px; }
+.popup.grade-PERFECT, .popup.grade-EXCELLENT { text-shadow: 0 0 28px currentColor, 0 4px 18px rgba(0,0,0,.5); }
+
+#gympanel { position: absolute; left: 24px; top: 24px; min-width: 250px; background: rgba(8,10,16,.78); padding: 14px 18px; }
+.gym-big { font-family: var(--font-display); font-weight: 800; font-size: 48px; line-height: 1.05; margin: 2px 0 8px; } .gym-big small { font-size: 18px; margin-left: 10px; color: var(--muted); }
+.gym-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 12px; } .gym-grid b { display: block; font-family: var(--font-display); font-size: 18px; } .gym-grid small { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.spotgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

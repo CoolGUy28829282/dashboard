@@ -59,6 +59,7 @@ class App {
     this.session = new GameSession(this, cfg); this.session.cfg = cfg; this.screens.current = null;
     await this.session.begin();
   }
+  onGymEnd(session) { session.hud.el.style.display = 'none'; session.view.rig.setMode('2k'); this.screens.gymSummary(session); }
   onGameEnd(session, res) { session.hud.el.style.display = 'none'; session.view.rig.setMode('broadcast'); this.screens.postgame(session, res); }
   endSession() { this.session = null; this.backdrop = new Backdrop(this.rend, ARENAS[0]); this.backdrop.activate(); this.applyVideo(); }
 }

@@ -18,10 +18,11 @@ export class Hud {
       h('div', { class: 'mid' }, h('div', { class: 'per', id: 'per' }, 'Q1'), h('div', { class: 'clock', id: 'clk' }, '5:00'), h('div', { class: 'sub', id: 'subm' })),
       h('div', { class: 'sc', id: 'shc' }, '24'),
       h('div', { class: 'team right' }, h('div', { class: 'abbr', style: { color: T[1].colors.primary } }, T[1].abbr), h('div', { class: 'score', id: 'sc1', style: { color: T[1].colors.primary } }, '0'), h('div', { class: 'sub', id: 'sub1' })));
-    this.clutchEl = h('div', { id: 'clutch' }); this.pcard = h('div', { id: 'pcard', class: 'panel cyan' }); this.ticker = h('div', { id: 'ticker' }); this.popups = h('div', { id: 'popups' }); this.toasts = h('div', { id: 'toast' });
+    this.clutchEl = h('div', { id: 'clutch' }); this.pcard = h('div', { id: 'pcard', class: 'panel' }); this.ticker = h('div', { id: 'ticker' }); this.popups = h('div', { id: 'popups' }); this.toasts = h('div', { id: 'toast' });
     this.debug = h('div', { id: 'debug' }); this.fpsEl = h('div', { id: 'fps' }); this.replayTag = h('div', { id: 'replayTag', class: 'panel mag hide', style: { padding: '6px 18px' } }, h('span', { class: 'display mg' }, '● Replay'), h('span', { class: 'muted', style: { marginLeft: '12px', fontSize: '11px' } }, 'Space skip · O slow-mo speed · drag to orbit'));
     this.routeUi = h('div', { class: 'route-ui' }); this.buildPlayUi();
     this.el.append(this.clutchEl, this.sb, this.pcard, this.ticker, this.popups, this.toasts, this.debug, this.fpsEl, this.replayTag, this.routeUi); root.append(this.el);
+    if (game.gym) { this.sb.style.display = 'none'; this.routeUi.style.display = 'none'; this.gymPanel = h('div', { id: 'gympanel', class: 'panel' }); this.el.append(this.gymPanel); this.gymT = 0; }
     this.wire(bus); this.lastCard = ''; this.shown = { sc: [-1, -1] };
   }
   buildPlayUi() {
@@ -35,7 +36,8 @@ export class Hud {
     on('popup', ({ text }) => this.popup(text, `pop-${text.replace(/[^A-Z]/g, '')}`));
     on('shotGrade', ({ grade, offsetMs, contest, windowMs }) => {
       const dir = grade === 'early' ? '◀ EARLY' : grade === 'late' ? 'LATE ▶' : GRADE_TEXT[grade];
-      this.popup(dir, `grade-${GRADE_TEXT[grade].replace(' ', '')}`, `${offsetMs > 0 ? '+' : ''}${Math.round(offsetMs)} ms · window ${Math.round(windowMs)} ms · contest ${Math.round(contest * 100)}%`);
+      const pl = contest >= 0.7 ? 'Smothered' : contest >= 0.45 ? 'Contested' : contest >= 0.2 ? 'Tight' : 'Open';
+      this.popup(dir, `grade-${GRADE_TEXT[grade].replace(' ', '')}`, `${pl} · ${offsetMs > 0 ? '+' : ''}${Math.round(offsetMs)} ms · window ${Math.round(windowMs)} ms`);
     });
     on('foul', ({ info, by }) => { if (info?.andOne) this.popup('AND-ONE', 'pop-ANDONE'); this.ctx.audio?.whistle(); void by; });
     on('timeout', ({ team }) => this.toast(`${this.g.teams[team].data.city} timeout`, 'amb'));
@@ -66,7 +68,8 @@ export class Hud {
     this.tickerT -= dt; if (this.tickerT < 0) this.ticker.classList.remove('on');
     this.fpsAcc += dt; this.fpsN++; if (this.fpsAcc > 0.5) { this.fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; }
     this.fpsEl.textContent = this.ctx.settings.video.showFps ? `${this.fps.toFixed(0)} FPS` : '';
-    this.sbT -= dt; if (this.sbT <= 0) { this.sbT = 0.08; this.drawScore(); this.drawCard(ctrl); }
+    this.sbT -= dt; if (this.sbT <= 0) { this.sbT = 0.08; if (!g.gym) this.drawScore(); this.drawCard(ctrl); }
+    if (g.gym) { this.gymT -= dt; if (this.gymT <= 0) { this.gymT = 0.25; this.drawGym(); } }
     this.clutchEl.classList.toggle('on', !!g.isClutch?.() && g.phase !== 'end');
     this.dbgT -= dt; if (this.debug.classList.contains('on') && this.dbgT <= 0) { this.dbgT = 0.1; this.drawDebug(ctrl, fps ?? this.fps); }
   }
@@ -79,11 +82,21 @@ export class Hud {
     for (const i of [0, 1]) { const el = $('sub' + i); clear(el); const t = g.teams[i]; el.append(h('span', {}, 'TO'), this.pips(t.timeouts, RULES.timeouts > 5 ? 7 : RULES.timeouts)); el.append(h('span', {}, `F ${t.fouls}`)); if (t.bonus) el.append(h('span', { class: 'bonus' }, 'BONUS')); }
     $('subm').textContent = g.phase === 'ft' && g.ft ? `FT ${g.ft.total - g.ft.left + (g.ft.resolved ? 0 : 1)}/${g.ft.total}` : g.phase === 'inbound' ? `INBOUND ${Math.max(0, g.poss.inbound).toFixed(0)}` : g.isClutch?.() ? 'CLUTCH' : g.poss.team === 0 ? `◀ ${g.teams[0].data.abbr}` : `${g.teams[1].data.abbr} ▶`;
   }
+  drawGym() {
+    const s = gymStats(this.g), el = this.gymPanel, f = (m, a) => (a ? `${Math.round((m / a) * 100)}%` : '–');
+    clear(el); el.append(h('div', { class: 'display', style: { fontSize: '13px', letterSpacing: '.18em', color: 'var(--muted)' } }, 'My Gym'),
+      h('div', { class: 'gym-big' }, `${s.fgm}/${s.fga}`, h('small', {}, f(s.fgm, s.fga))),
+      h('div', { class: 'gym-grid' }, [['3PT', `${s.tpm}/${s.tpa}`], ['Greens', `${s.greens}`], ['Green %', f(s.greens, s.fga)], ['Avg timing', s.fga ? `${Math.round(s.avgOff)} ms` : '–'], ['Streak', `${s.streak}`], ['Best', `${s.best}`], ['Open FG', f(s.openM, s.openA)], ['Contested FG', f(s.contM, s.contA)]].map(([k, v]) => h('div', {}, h('b', {}, v), h('small', {}, k)))),
+      h('div', { class: 'muted', style: { fontSize: '11px', marginTop: '8px' } }, 'Esc: practice options (spots, defender, free throws)'));
+  }
   drawCard(p) {
     const el = this.pcard; if (!p) return;
-    const A = ARCHETYPES[p.data.archetype]; const key = `${p.id}|${Math.round(p.stamina / 2)}|${p.run}|${p.fouls}|${Math.round(p.momentum * 10)}`; if (key === this.lastCard) return; this.lastCard = key;
+    const A = ARCHETYPES[p.data.archetype];
+    let near = 99; if (p.hasBall) for (const q of this.g.teams[1 - p.team].court) near = Math.min(near, Math.hypot(q.pos.x - p.pos.x, q.pos.z - p.pos.z));
+    const space = !p.hasBall ? '' : near < 1.3 ? 'SMOTHERED' : near < 2.0 ? 'CONTESTED' : near < 3.0 ? 'TIGHT' : 'OPEN'; // how much room the handler has right now
+    const key = `${p.id}|${Math.round(p.stamina / 2)}|${p.run}|${p.fouls}|${Math.round(p.momentum * 10)}|${space}`; if (key === this.lastCard) return; this.lastCard = key;
     clear(el); const hot = p.run >= 4 ? 'ON FIRE' : p.run >= 2 ? 'HEATING UP' : p.run <= -3 ? 'COLD' : '';
-    el.append(h('div', { class: 'row' }, h('span', { class: 'num', style: { fontSize: '26px', color: this.g.teams[p.team].data.colors.primary } }, '#' + p.number), h('div', {}, h('div', { class: 'nm' }, p.name), h('div', { class: 'ar' }, `${A.label} · ${p.data.pos} · OVR ${p.data.ovr}`)), h('div', { class: 'spacer' }), hot ? h('span', { class: `pill ${p.run >= 4 ? 'am' : ''}`, style: { color: p.run <= -3 ? 'var(--cyan)' : 'var(--amber)' } }, hot) : null),
+    el.append(h('div', { class: 'row' }, h('span', { class: 'num', style: { fontSize: '26px', color: this.g.teams[p.team].data.colors.primary } }, '#' + p.number), h('div', {}, h('div', { class: 'nm' }, p.name), h('div', { class: 'ar' }, `${A.label} · ${p.data.pos} · OVR ${p.data.ovr}`)), h('div', { class: 'spacer' }), hot ? h('span', { class: `pill ${p.run >= 4 ? 'am' : ''}`, style: { color: p.run <= -3 ? 'var(--cyan)' : 'var(--amber)' } }, hot) : null, space ? h('span', { class: `space space-${space}` }, space) : null),
       h('div', { class: 'row', style: { marginTop: '10px', gap: '10px' } }, h('span', { class: 'muted', style: { fontSize: '10px', letterSpacing: '.12em' } }, 'STAMINA'), h('div', { class: 'bar grow' }, h('i', { style: { width: `${p.stamina}%`, background: p.stamina < 30 ? 'var(--danger)' : '' } })), h('span', { class: 'num', style: { fontSize: '12px' } }, Math.round(p.stamina))),
       h('div', { class: 'row', style: { marginTop: '6px', gap: '10px' } }, h('span', { class: 'muted', style: { fontSize: '10px', letterSpacing: '.12em' } }, 'MOMENTUM'), h('div', { class: 'bar grow' }, h('i', { style: { width: `${p.momentum * 100}%`, background: 'linear-gradient(90deg,var(--magenta),var(--amber))' } })), h('span', { class: 'muted', style: { fontSize: '11px' } }, `PF ${p.fouls}`)));
   }
@@ -105,3 +118,10 @@ export class Hud {
   dispose() { this.offs.forEach((f) => f()); this.el.remove(); }
 }
 void BADGES; void PLAYS; void SHOT;
+
+/** Practice stats for the gym user, derived from the game's shot log. */
+export function gymStats(g) {
+  const u = g.gymUser, mine = g.shots.filter((x) => x.shooter === u.id && x.type !== 'ft'), s = { fga: mine.length, fgm: 0, tpa: 0, tpm: 0, greens: 0, avgOff: 0, streak: 0, best: 0, openA: 0, openM: 0, contA: 0, contM: 0 };
+  let run = 0; for (const x of mine) { if (x.made) { s.fgm++; run++; s.best = Math.max(s.best, run); } else run = 0; if (x.three) { s.tpa++; if (x.made) s.tpm++; } if (x.grade === 'perfect') s.greens++; s.avgOff += Math.abs(x.offsetMs); if (x.contest < 0.2) { s.openA++; if (x.made) s.openM++; } else { s.contA++; if (x.made) s.contM++; } }
+  s.streak = run; s.avgOff = mine.length ? s.avgOff / mine.length : 0; return s;
+}
